@@ -1,0 +1,110 @@
+package com.kintsugirun
+
+import android.content.Context
+import android.net.Uri
+import android.util.Log
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import java.io.File
+import java.io.FileOutputStream
+
+class WorkoutRepository(private val context: Context) {
+
+    private val TAG = "WorkoutRepository"
+    // Using ignoreUnknownKeys = true is generally a good practice for robustness
+    private val json = Json { ignoreUnknownKeys = true }
+
+    suspend fun initializeDefaultWorkoutIfNeeded() = withContext(Dispatchers.IO) {
+        try {
+            val filesDir = context.filesDir
+            val hasJsonFiles = filesDir.listFiles { _, name -> name.endsWith(".json") }?.isNotEmpty() == true
+
+            if (!hasJsonFiles) {
+                Log.d(TAG, "No JSON files found in internal storage. Copying test.json from assets.")
+                context.assets.open("test.json").use { inputStream ->
+                    val outFile = File(filesDir, "test.json")
+                    FileOutputStream(outFile).use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+                Log.d(TAG, "Successfully copied test.json to internal storage.")
+            } else {
+                Log.d(TAG, "JSON files already exist. Skipping default workout initialization.")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing default workout", e)
+        }
+    }
+
+    suspend fun getAllWorkouts(): List<Workout> = withContext(Dispatchers.IO) {
+        val workouts = mutableListOf<Workout>()
+        val filesDir = context.filesDir
+        val jsonFiles = filesDir.listFiles { _, name -> name.endsWith(".json") } ?: emptyArray()
+
+        for (file in jsonFiles) {
+            try {
+                val text = file.readText()
+                val workout = json.decodeFromString<Workout>(text)
+                workouts.add(workout)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing file: ${file.name}", e)
+            }
+        }
+        workouts
+    }
+
+    suspend fun deleteWorkout(fileName: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val file = File(context.filesDir, fileName)
+            if (file.exists()) {
+                val deleted = file.delete()
+                if (deleted) {
+                    Log.d(TAG, "Successfully deleted $fileName")
+                } else {
+                    Log.w(TAG, "Failed to delete $fileName")
+                }
+                deleted
+            } else {
+                Log.w(TAG, "File not found: $fileName")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error deleting file: $fileName", e)
+            false
+        }
+    }
+
+    suspend fun importWorkoutFromUri(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val contentResolver = context.contentResolver
+            val text = contentResolver.openInputStream(uri)?.use { inputStream ->
+                inputStream.bufferedReader().use { it.readText() }
+            }
+
+            if (text == null) {
+                Log.e(TAG, "Failed to read content from URI: $uri")
+                return@withContext false
+            }
+
+            // Attempt to deserialize to validate the format
+            val workout = json.decodeFromString<Workout>(text)
+
+            // Generate a safe file name based on workout name
+            val safeFileName = workout.workoutName
+                .lowercase()
+                .replace(Regex("[^a-z0-9]"), "_") + ".json"
+
+            // Save the JSON string as a new file, overwriting if it exists
+            val outFile = File(context.filesDir, safeFileName)
+            outFile.writeText(text)
+
+            Log.d(TAG, "Successfully imported workout to $safeFileName")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "Error importing workout from URI: $uri", e)
+            false
+        }
+    }
+}
