@@ -38,8 +38,8 @@ class WorkoutRepository(private val context: Context) {
         }
     }
 
-    suspend fun getAllWorkouts(): List<Workout> = withContext(Dispatchers.IO) {
-        val workouts = mutableListOf<Workout>()
+    suspend fun getAllWorkouts(): List<Pair<String, Workout>> = withContext(Dispatchers.IO) {
+        val workouts = mutableListOf<Pair<String, Workout>>()
         val filesDir = context.filesDir
         val jsonFiles = filesDir.listFiles { _, name -> name.endsWith(".json") } ?: emptyArray()
 
@@ -47,12 +47,28 @@ class WorkoutRepository(private val context: Context) {
             try {
                 val text = file.readText()
                 val workout = json.decodeFromString<Workout>(text)
-                workouts.add(workout)
+                workouts.add(Pair(file.name, workout))
             } catch (e: Exception) {
                 Log.e(TAG, "Error parsing file: ${file.name}", e)
             }
         }
         workouts
+    }
+
+    suspend fun getWorkoutByFileName(fileName: String): Workout? = withContext(Dispatchers.IO) {
+        try {
+            val file = File(context.filesDir, fileName)
+            if (file.exists()) {
+                val text = file.readText()
+                json.decodeFromString<Workout>(text)
+            } else {
+                Log.w(TAG, "Workout file not found: $fileName")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error parsing file: $fileName", e)
+            null
+        }
     }
 
     suspend fun deleteWorkout(fileName: String): Boolean = withContext(Dispatchers.IO) {
