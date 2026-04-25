@@ -122,4 +122,17 @@ class WorkoutRepository(private val context: Context) {
             false
         }
     }
+
+    suspend fun saveWorkout(fileName: String, workout: Workout): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val jsonString = json.encodeToString(Workout.serializer(), workout)
+            val file = File(context.filesDir, fileName)
+            file.writeText(jsonString)
+            Log.d(tag, "Successfully saved workout to $fileName")
+            true
+        } catch (e: Exception) {
+            Log.e(tag, "Error saving workout to $fileName", e)
+            false
+        }
+    }
 }

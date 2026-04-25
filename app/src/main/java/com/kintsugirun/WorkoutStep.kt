@@ -28,3 +28,7 @@ fun Workout.flatten(): List<WorkoutStep> {
 
     return steps
 }
+
+fun Workout.getTotalDurationSeconds(): Int {
+    return this.flatten().sumOf { it.durationSeconds }
+}
