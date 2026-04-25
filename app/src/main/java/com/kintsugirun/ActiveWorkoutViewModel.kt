@@ -1,8 +1,9 @@
 package com.kintsugirun
 
-import android.content.Context
+import android.app.Application
 import android.content.Intent
-import androidx.lifecycle.ViewModel
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,8 +12,8 @@ import kotlinx.coroutines.launch
 
 class ActiveWorkoutViewModel(
     private val repository: WorkoutRepository,
-    private val context: Context
-) : ViewModel() {
+    application: Application
+) : AndroidViewModel(application) {
 
     private val _workout = MutableStateFlow<Workout?>(null)
     val workout: StateFlow<Workout?> = _workout.asStateFlow()
@@ -29,10 +30,10 @@ class ActiveWorkoutViewModel(
         val currentWorkout = _workout.value ?: return
 
         // Start Foreground Service
-        val serviceIntent = Intent(context, TimerService::class.java).apply {
+        val serviceIntent = Intent(getApplication(), TimerService::class.java).apply {
             putExtra("WORKOUT_NAME", currentWorkout.workoutName)
         }
-        context.startForegroundService(serviceIntent)
+        ContextCompat.startForegroundService(getApplication(), serviceIntent)
 
         TimerManager.start(currentWorkout)
     }
@@ -47,8 +48,8 @@ class ActiveWorkoutViewModel(
 
     fun stopTimer() {
         TimerManager.stop()
-        val serviceIntent = Intent(context, TimerService::class.java)
-        context.stopService(serviceIntent)
+        val serviceIntent = Intent(getApplication(), TimerService::class.java)
+        getApplication<Application>().stopService(serviceIntent)
     }
 
     override fun onCleared() {

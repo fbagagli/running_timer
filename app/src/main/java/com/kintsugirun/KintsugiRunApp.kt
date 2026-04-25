@@ -1,7 +1,7 @@
 package com.kintsugirun
 
+import android.app.Application
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -17,6 +17,7 @@ fun KintsugiRunApp() {
 
     // Create a factory for the ViewModels
     val factory = object : ViewModelProvider.Factory {
+        @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T {
             val repository = WorkoutRepository(context.applicationContext)
             return when {
@@ -24,9 +25,9 @@ fun KintsugiRunApp() {
                     HomeViewModel(repository) as T
                 }
                 modelClass.isAssignableFrom(ActiveWorkoutViewModel::class.java) -> {
-                    ActiveWorkoutViewModel(repository, context.applicationContext) as T
+                    ActiveWorkoutViewModel(repository, context.applicationContext as Application) as T
                 }
-                else -> throw IllegalArgumentException("Unknown ViewModel class")
+                else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
             }
         }
     }

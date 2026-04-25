@@ -13,6 +13,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import java.util.Locale
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveWorkoutScreen(
@@ -126,5 +128,5 @@ fun ActiveWorkoutScreen(
 private fun formatTime(seconds: Int): String {
     val mins = seconds / 60
     val secs = seconds % 60
-    return String.format("%02d:%02d", mins, secs)
+    return String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
 }
