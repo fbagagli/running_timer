@@ -6,30 +6,31 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
 class MainActivity : ComponentActivity() {
+    private lateinit var ttsManager: TtsManager
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        ttsManager = TtsManager(this)
+        TimerManager.initTts(ttsManager)
+
         setContent {
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Greeting("Android")
+                    KintsugiRunApp()
                 }
             }
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+    override fun onDestroy() {
+        super.onDestroy()
+        ttsManager.shutdown()
+    }
 }

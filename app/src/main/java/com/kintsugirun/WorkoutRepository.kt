@@ -5,14 +5,13 @@ import android.net.Uri
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
 
 class WorkoutRepository(private val context: Context) {
 
-    private val TAG = "WorkoutRepository"
+    private val tag = "WorkoutRepository"
     // Using ignoreUnknownKeys = true is generally a good practice for robustness
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -22,24 +21,24 @@ class WorkoutRepository(private val context: Context) {
             val hasJsonFiles = filesDir.listFiles { _, name -> name.endsWith(".json") }?.isNotEmpty() == true
 
             if (!hasJsonFiles) {
-                Log.d(TAG, "No JSON files found in internal storage. Copying test.json from assets.")
+                Log.d(tag, "No JSON files found in internal storage. Copying test.json from assets.")
                 context.assets.open("test.json").use { inputStream ->
                     val outFile = File(filesDir, "test.json")
                     FileOutputStream(outFile).use { outputStream ->
                         inputStream.copyTo(outputStream)
                     }
                 }
-                Log.d(TAG, "Successfully copied test.json to internal storage.")
+                Log.d(tag, "Successfully copied test.json to internal storage.")
             } else {
-                Log.d(TAG, "JSON files already exist. Skipping default workout initialization.")
+                Log.d(tag, "JSON files already exist. Skipping default workout initialization.")
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error initializing default workout", e)
+            Log.e(tag, "Error initializing default workout", e)
         }
     }
 
-    suspend fun getAllWorkouts(): List<Workout> = withContext(Dispatchers.IO) {
-        val workouts = mutableListOf<Workout>()
+    suspend fun getAllWorkouts(): List<Pair<String, Workout>> = withContext(Dispatchers.IO) {
+        val workouts = mutableListOf<Pair<String, Workout>>()
         val filesDir = context.filesDir
         val jsonFiles = filesDir.listFiles { _, name -> name.endsWith(".json") } ?: emptyArray()
 
@@ -47,12 +46,28 @@ class WorkoutRepository(private val context: Context) {
             try {
                 val text = file.readText()
                 val workout = json.decodeFromString<Workout>(text)
-                workouts.add(workout)
+                workouts.add(Pair(file.name, workout))
             } catch (e: Exception) {
-                Log.e(TAG, "Error parsing file: ${file.name}", e)
+                Log.e(tag, "Error parsing file: ${file.name}", e)
             }
         }
         workouts
+    }
+
+    suspend fun getWorkoutByFileName(fileName: String): Workout? = withContext(Dispatchers.IO) {
+        try {
+            val file = File(context.filesDir, fileName)
+            if (file.exists()) {
+                val text = file.readText()
+                json.decodeFromString<Workout>(text)
+            } else {
+                Log.w(tag, "Workout file not found: $fileName")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "Error parsing file: $fileName", e)
+            null
+        }
     }
 
     suspend fun deleteWorkout(fileName: String): Boolean = withContext(Dispatchers.IO) {
@@ -61,17 +76,17 @@ class WorkoutRepository(private val context: Context) {
             if (file.exists()) {
                 val deleted = file.delete()
                 if (deleted) {
-                    Log.d(TAG, "Successfully deleted $fileName")
+                    Log.d(tag, "Successfully deleted $fileName")
                 } else {
-                    Log.w(TAG, "Failed to delete $fileName")
+                    Log.w(tag, "Failed to delete $fileName")
                 }
                 deleted
             } else {
-                Log.w(TAG, "File not found: $fileName")
+                Log.w(tag, "File not found: $fileName")
                 false
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error deleting file: $fileName", e)
+            Log.e(tag, "Error deleting file: $fileName", e)
             false
         }
     }
@@ -84,7 +99,7 @@ class WorkoutRepository(private val context: Context) {
             }
 
             if (text == null) {
-                Log.e(TAG, "Failed to read content from URI: $uri")
+                Log.e(tag, "Failed to read content from URI: $uri")
                 return@withContext false
             }
 
@@ -100,10 +115,10 @@ class WorkoutRepository(private val context: Context) {
             val outFile = File(context.filesDir, safeFileName)
             outFile.writeText(text)
 
-            Log.d(TAG, "Successfully imported workout to $safeFileName")
+            Log.d(tag, "Successfully imported workout to $safeFileName")
             true
         } catch (e: Exception) {
-            Log.e(TAG, "Error importing workout from URI: $uri", e)
+            Log.e(tag, "Error importing workout from URI: $uri", e)
             false
         }
     }
