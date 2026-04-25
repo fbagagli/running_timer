@@ -27,6 +27,9 @@ fun KintsugiRunApp() {
                 modelClass.isAssignableFrom(ActiveWorkoutViewModel::class.java) -> {
                     ActiveWorkoutViewModel(repository, context.applicationContext as Application) as T
                 }
+                modelClass.isAssignableFrom(WorkoutReviewViewModel::class.java) -> {
+                    WorkoutReviewViewModel(repository) as T
+                }
                 else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
             }
         }
@@ -38,7 +41,24 @@ fun KintsugiRunApp() {
             HomeScreen(
                 viewModel = homeViewModel,
                 onNavigateToWorkout = { fileName ->
-                    navController.navigate("active_workout/$fileName")
+                    navController.navigate("workout_review/$fileName")
+                }
+            )
+        }
+        composable("workout_review/{fileName}") { backStackEntry ->
+            val fileName = backStackEntry.arguments?.getString("fileName") ?: return@composable
+            val workoutReviewViewModel: WorkoutReviewViewModel = viewModel(factory = factory)
+
+            WorkoutReviewScreen(
+                fileName = fileName,
+                viewModel = workoutReviewViewModel,
+                onStartWorkout = {
+                    navController.navigate("active_workout/$fileName") {
+                        popUpTo("workout_review/$fileName") { inclusive = true }
+                    }
+                },
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }
