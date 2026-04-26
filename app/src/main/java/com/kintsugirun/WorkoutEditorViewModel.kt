@@ -143,11 +143,9 @@ class WorkoutEditorViewModel(
         }
     }
 
-    fun saveWorkout() {
+    suspend fun saveWorkout() {
         val currentWorkout = _workout.value ?: return
-        viewModelScope.launch {
-            repository.saveWorkout(currentWorkout, fileName)
-        }
+        repository.saveWorkout(currentWorkout, fileName)
     }
 
     class Factory(

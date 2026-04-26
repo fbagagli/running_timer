@@ -19,7 +19,6 @@ class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
 
     fun loadWorkouts() {
         viewModelScope.launch {
-            repository.initializeDefaultWorkoutIfNeeded()
             _workouts.value = repository.getAllWorkouts()
         }
     }
