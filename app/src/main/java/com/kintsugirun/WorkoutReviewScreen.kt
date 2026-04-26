@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -18,7 +19,8 @@ fun WorkoutReviewScreen(
     fileName: String,
     viewModel: WorkoutReviewViewModel,
     onStartWorkout: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onEditWorkout: () -> Unit
 ) {
     val workout by viewModel.workout.collectAsState()
 
@@ -35,6 +37,14 @@ fun WorkoutReviewScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
+                        )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onEditWorkout) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Edit Workout"
                         )
                     }
                 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,7 +21,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onNavigateToWorkout: (String) -> Unit
+    onNavigateToWorkout: (String) -> Unit,
+    onCreateWorkout: () -> Unit
 ) {
     val workouts by viewModel.workouts.collectAsState()
 
@@ -33,13 +35,20 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("KintsugiRun Workouts") }
+                title = { Text("KintsugiRun Workouts") },
+                actions = {
+                    IconButton(onClick = { launcher.launch("application/json") }) {
+                        Icon(Icons.Filled.Download, contentDescription = "Import Workout")
+                    }
+                }
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { launcher.launch("application/json") }) {
-                Icon(Icons.Filled.Add, contentDescription = "Import Workout")
-            }
+            ExtendedFloatingActionButton(
+                onClick = onCreateWorkout,
+                icon = { Icon(Icons.Filled.Add, contentDescription = "Create Workout") },
+                text = { Text("Create Workout") }
+            )
         }
     ) { paddingValues ->
         if (workouts.isEmpty()) {
