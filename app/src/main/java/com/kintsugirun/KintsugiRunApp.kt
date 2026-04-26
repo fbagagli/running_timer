@@ -6,9 +6,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 
 @Composable
 fun KintsugiRunApp() {
@@ -30,6 +32,12 @@ fun KintsugiRunApp() {
                 modelClass.isAssignableFrom(WorkoutReviewViewModel::class.java) -> {
                     WorkoutReviewViewModel(repository) as T
                 }
+                modelClass.isAssignableFrom(WorkoutEditorViewModel::class.java) -> {
+                    // This is a bit tricky since WorkoutEditorViewModel needs a fileName.
+                    // However, we can use the WorkoutEditorViewModel.Factory directly in the route
+                    // instead of relying on this global factory. Or we can just throw if it's accessed here.
+                    throw IllegalArgumentException("WorkoutEditorViewModel should use its own factory")
+                }
                 else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
             }
         }
@@ -42,6 +50,9 @@ fun KintsugiRunApp() {
                 viewModel = homeViewModel,
                 onNavigateToWorkout = { fileName ->
                     navController.navigate("workout_review/$fileName")
+                },
+                onCreateWorkout = {
+                    navController.navigate("workout_editor")
                 }
             )
         }
@@ -59,7 +70,28 @@ fun KintsugiRunApp() {
                 },
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onEditWorkout = {
+                    navController.navigate("workout_editor?fileName=$fileName")
                 }
+            )
+        }
+        composable(
+            route = "workout_editor?fileName={fileName}",
+            arguments = listOf(navArgument("fileName") {
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            })
+        ) { backStackEntry ->
+            val fileName = backStackEntry.arguments?.getString("fileName")
+            val repository = WorkoutRepository(context.applicationContext)
+            val editorFactory = WorkoutEditorViewModel.Factory(repository, fileName)
+            val workoutEditorViewModel: WorkoutEditorViewModel = viewModel(factory = editorFactory)
+
+            WorkoutEditorScreen(
+                viewModel = workoutEditorViewModel,
+                navController = navController
             )
         }
         composable("active_workout/{fileName}") { backStackEntry ->
