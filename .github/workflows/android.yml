@@ -27,3 +27,10 @@ jobs:
 
     - name: Run unit tests
       run: ./gradlew testDebugUnitTest
+
+    - name: Upload Test Reports
+      uses: actions/upload-artifact@v4
+      if: always() # This ensures the report is uploaded even if the previous test step fails
+      with:
+        name: unit-test-report
+        path: app/build/reports/tests/testDebugUnitTest/
