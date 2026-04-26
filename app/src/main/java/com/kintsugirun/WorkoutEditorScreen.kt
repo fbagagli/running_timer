@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,6 +23,7 @@ fun WorkoutEditorScreen(
     navController: NavController
 ) {
     val workout by viewModel.workout.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -32,8 +34,10 @@ fun WorkoutEditorScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        viewModel.saveWorkout()
-                        navController.popBackStack()
+                        coroutineScope.launch {
+                            viewModel.saveWorkout()
+                            navController.popBackStack()
+                        }
                     }) {
                         Icon(Icons.Filled.Check, contentDescription = "Save Workout")
                     }

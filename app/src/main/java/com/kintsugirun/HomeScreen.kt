@@ -26,6 +26,10 @@ fun HomeScreen(
 ) {
     val workouts by viewModel.workouts.collectAsState()
 
+    LaunchedEffect(Unit) {
+        viewModel.loadWorkouts()
+    }
+
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->

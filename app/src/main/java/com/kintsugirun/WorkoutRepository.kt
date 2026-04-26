@@ -16,28 +16,6 @@ class WorkoutRepository(private val context: Context) {
     // Using ignoreUnknownKeys = true is generally a good practice for robustness
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun initializeDefaultWorkoutIfNeeded() = withContext(Dispatchers.IO) {
-        try {
-            val filesDir = context.filesDir
-            val hasJsonFiles = filesDir.listFiles { _, name -> name.endsWith(".json") }?.isNotEmpty() == true
-
-            if (!hasJsonFiles) {
-                Log.d(tag, "No JSON files found in internal storage. Copying test.json from assets.")
-                context.assets.open("test.json").use { inputStream ->
-                    val outFile = File(filesDir, "test.json")
-                    FileOutputStream(outFile).use { outputStream ->
-                        inputStream.copyTo(outputStream)
-                    }
-                }
-                Log.d(tag, "Successfully copied test.json to internal storage.")
-            } else {
-                Log.d(tag, "JSON files already exist. Skipping default workout initialization.")
-            }
-        } catch (e: Exception) {
-            Log.e(tag, "Error initializing default workout", e)
-        }
-    }
-
     suspend fun getAllWorkouts(): List<Pair<String, Workout>> = withContext(Dispatchers.IO) {
         val workouts = mutableListOf<Pair<String, Workout>>()
         val filesDir = context.filesDir
