@@ -58,6 +58,12 @@ class WorkoutEditorViewModel(
         }
     }
 
+    fun updateCooldown(duration: Int, message: String) {
+        _workout.update { current ->
+            current?.copy(cooldown = current.cooldown.copy(durationSeconds = duration, message = message))
+        }
+    }
+
     fun addSet() {
         _workout.update { current ->
             current?.copy(
@@ -67,6 +73,30 @@ class WorkoutEditorViewModel(
                     intervals = listOf()
                 )
             )
+        }
+    }
+
+    fun updateSetName(setIndex: Int, name: String) {
+        _workout.update { current ->
+            if (current == null) return@update null
+            if (setIndex !in current.sets.indices) return@update current
+
+            val updatedSets = current.sets.toMutableList()
+            updatedSets[setIndex] = updatedSets[setIndex].copy(setName = name)
+
+            current.copy(sets = updatedSets)
+        }
+    }
+
+    fun updateSetRepeats(setIndex: Int, repeats: Int) {
+        _workout.update { current ->
+            if (current == null) return@update null
+            if (setIndex !in current.sets.indices) return@update current
+
+            val updatedSets = current.sets.toMutableList()
+            updatedSets[setIndex] = updatedSets[setIndex].copy(repeats = repeats)
+
+            current.copy(sets = updatedSets)
         }
     }
 
