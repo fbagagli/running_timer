@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.io.FileOutputStream
@@ -120,6 +121,21 @@ class WorkoutRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e(tag, "Error importing workout from URI: $uri", e)
             false
+        }
+    }
+
+    suspend fun saveWorkout(workout: Workout, originalFileName: String? = null) = withContext(Dispatchers.IO) {
+        try {
+            val fileName = originalFileName ?: (workout.workoutName
+                .lowercase()
+                .replace(Regex("[^a-z0-9]"), "_") + ".json")
+
+            val outFile = File(context.filesDir, fileName)
+            val jsonString = json.encodeToString(workout)
+            outFile.writeText(jsonString)
+            Log.d(tag, "Successfully saved workout to $fileName")
+        } catch (e: Exception) {
+            Log.e(tag, "Error saving workout", e)
         }
     }
 }
