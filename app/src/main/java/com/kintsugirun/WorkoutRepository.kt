@@ -12,6 +12,10 @@ import java.io.FileOutputStream
 
 class WorkoutRepository(private val context: Context) {
 
+    companion object {
+        private val safeFileNameRegex = Regex("[^a-z0-9]")
+    }
+
     private val tag = "WorkoutRepository"
     // Using ignoreUnknownKeys = true is generally a good practice for robustness
     private val json = Json { ignoreUnknownKeys = true }
@@ -110,7 +114,7 @@ class WorkoutRepository(private val context: Context) {
             // Generate a safe file name based on workout name
             val safeFileName = workout.workoutName
                 .lowercase()
-                .replace(Regex("[^a-z0-9]"), "_") + ".json"
+                .replace(safeFileNameRegex, "_") + ".json"
 
             // Save the JSON string as a new file, overwriting if it exists
             val outFile = File(context.filesDir, safeFileName)
@@ -128,7 +132,7 @@ class WorkoutRepository(private val context: Context) {
         try {
             val fileName = originalFileName ?: (workout.workoutName
                 .lowercase()
-                .replace(Regex("[^a-z0-9]"), "_") + ".json")
+                .replace(safeFileNameRegex, "_") + ".json")
 
             val outFile = File(context.filesDir, fileName)
             val jsonString = json.encodeToString(workout)
