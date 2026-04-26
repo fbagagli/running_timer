@@ -2,7 +2,6 @@ package com.kintsugirun
 
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
-import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -44,7 +43,7 @@ class WorkoutEditorViewModelTest {
             testScheduler.advanceUntilIdle()
 
             // Need to retrieve item again if first was null, but let's test if we eventually get the right one
-            val actualWorkout = if (workout == null) awaitItem() else workout
+            val actualWorkout = workout ?: awaitItem()
 
             assertThat(actualWorkout).isNotNull()
             assertThat(actualWorkout?.workoutName).isEqualTo("New Workout")
