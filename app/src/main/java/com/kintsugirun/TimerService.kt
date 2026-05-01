@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,21 +21,30 @@ class TimerService : Service() {
     private val CHANNEL_ID = "TimerServiceChannel"
     private val NOTIFICATION_ID = 1
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var wakeLock: PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
 
-        // Observe the timer state to auto-stop the service when the workout finishes
+        // Observe the timer state to auto-stop the service or manage wake lock when paused
         TimerManager.timerState.onEach { state ->
             if (state.isFinished) {
                 stopSelf()
+            } else if (!state.isPlaying) {
+                // If paused, we can release the wake lock to save battery
+                releaseWakeLock()
+            } else if (state.isPlaying) {
+                // Re-acquire if resumed
+                acquireWakeLock()
             }
         }.launchIn(scope)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val workoutName = intent?.getStringExtra("WORKOUT_NAME") ?: "Workout"
+
+        acquireWakeLock()
 
         val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("KintsugiRun")
@@ -56,7 +66,27 @@ class TimerService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        releaseWakeLock()
         scope.cancel()
+    }
+
+    private fun acquireWakeLock() {
+        if (wakeLock == null) {
+            val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+            wakeLock = powerManager.newWakeLock(
+                PowerManager.PARTIAL_WAKE_LOCK,
+                "KintsugiRun::TimerWakeLock"
+            )
+        }
+        if (wakeLock?.isHeld == false) {
+            wakeLock?.acquire()
+        }
+    }
+
+    private fun releaseWakeLock() {
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? {
