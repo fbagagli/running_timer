@@ -1,108 +1,71 @@
 package com.kintsugirun
 
-import android.app.Application
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
+import androidx.navigation.toRoute
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
 fun KintsugiRunApp() {
-    val context = LocalContext.current
     val navController = rememberNavController()
 
-    // Create a factory for the ViewModels
-    val factory = object : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            val repository = WorkoutRepository(context.applicationContext)
-            return when {
-                modelClass.isAssignableFrom(HomeViewModel::class.java) -> {
-                    HomeViewModel(repository) as T
-                }
-                modelClass.isAssignableFrom(ActiveWorkoutViewModel::class.java) -> {
-                    ActiveWorkoutViewModel(repository, context.applicationContext as Application) as T
-                }
-                modelClass.isAssignableFrom(WorkoutReviewViewModel::class.java) -> {
-                    WorkoutReviewViewModel(repository) as T
-                }
-                modelClass.isAssignableFrom(WorkoutEditorViewModel::class.java) -> {
-                    // This is a bit tricky since WorkoutEditorViewModel needs a fileName.
-                    // However, we can use the WorkoutEditorViewModel.Factory directly in the route
-                    // instead of relying on this global factory. Or we can just throw if it's accessed here.
-                    throw IllegalArgumentException("WorkoutEditorViewModel should use its own factory")
-                }
-                else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
-            }
-        }
-    }
-
-    NavHost(navController = navController, startDestination = "home") {
-        composable("home") {
-            val homeViewModel: HomeViewModel = viewModel(factory = factory)
+    NavHost(navController = navController, startDestination = HomeRoute) {
+        composable<HomeRoute> {
+            val homeViewModel: HomeViewModel = koinViewModel()
             HomeScreen(
                 viewModel = homeViewModel,
                 onNavigateToWorkout = { fileName ->
-                    navController.navigate("workout_review/$fileName")
+                    navController.navigate(WorkoutReviewRoute(fileName = fileName))
                 },
                 onCreateWorkout = {
-                    navController.navigate("workout_editor")
+                    navController.navigate(WorkoutEditorRoute())
                 }
             )
         }
-        composable("workout_review/{fileName}") { backStackEntry ->
-            val fileName = backStackEntry.arguments?.getString("fileName") ?: return@composable
-            val workoutReviewViewModel: WorkoutReviewViewModel = viewModel(factory = factory)
+
+        composable<WorkoutReviewRoute> { backStackEntry ->
+            val route: WorkoutReviewRoute = backStackEntry.toRoute()
+            val workoutReviewViewModel: WorkoutReviewViewModel = koinViewModel()
 
             WorkoutReviewScreen(
-                fileName = fileName,
+                fileName = route.fileName,
                 viewModel = workoutReviewViewModel,
                 onStartWorkout = {
-                    navController.navigate("active_workout/$fileName") {
-                        popUpTo("workout_review/$fileName") { inclusive = true }
+                    navController.navigate(ActiveWorkoutRoute(fileName = route.fileName)) {
+                        popUpTo<WorkoutReviewRoute> { inclusive = true }
                     }
                 },
                 onNavigateBack = {
                     navController.popBackStack()
                 },
                 onEditWorkout = {
-                    navController.navigate("workout_editor?fileName=$fileName")
+                    navController.navigate(WorkoutEditorRoute(fileName = route.fileName))
                 }
             )
         }
-        composable(
-            route = "workout_editor?fileName={fileName}",
-            arguments = listOf(navArgument("fileName") {
-                type = NavType.StringType
-                nullable = true
-                defaultValue = null
-            })
-        ) { backStackEntry ->
-            val fileName = backStackEntry.arguments?.getString("fileName")
-            val repository = WorkoutRepository(context.applicationContext)
-            val editorFactory = WorkoutEditorViewModel.Factory(repository, fileName)
-            val workoutEditorViewModel: WorkoutEditorViewModel = viewModel(factory = editorFactory)
+
+        composable<WorkoutEditorRoute> { backStackEntry ->
+            val route: WorkoutEditorRoute = backStackEntry.toRoute()
+            val workoutEditorViewModel: WorkoutEditorViewModel = koinViewModel { parametersOf(route.fileName) }
 
             WorkoutEditorScreen(
                 viewModel = workoutEditorViewModel,
                 navController = navController
             )
         }
-        composable("active_workout/{fileName}") { backStackEntry ->
-            val fileName = backStackEntry.arguments?.getString("fileName") ?: return@composable
-            val activeWorkoutViewModel: ActiveWorkoutViewModel = viewModel(factory = factory)
+
+        composable<ActiveWorkoutRoute> { backStackEntry ->
+            val route: ActiveWorkoutRoute = backStackEntry.toRoute()
+            val activeWorkoutViewModel: ActiveWorkoutViewModel = koinViewModel()
 
             ActiveWorkoutScreen(
-                fileName = fileName,
+                fileName = route.fileName,
                 viewModel = activeWorkoutViewModel,
                 onNavigateBack = {
-                    navController.popBackStack("home", inclusive = false)
+                    navController.popBackStack<HomeRoute>(inclusive = false)
                 }
             )
         }

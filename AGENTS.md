@@ -7,10 +7,11 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - **Language**: Kotlin 2.0+ (JVM 17 target)
 - **Framework**: Android SDK 34 (minSdk 24)
 - **Build**: Gradle Version Catalog (`gradle/libs.versions.toml`), Kotlin Compose Plugin
+- **DI**: Koin (`koin-android`, `koin-androidx-compose`)
 - **UI**: Jetpack Compose with Material 3
-- **Navigation**: `androidx.navigation.compose`
+- **Navigation**: `androidx.navigation.compose` 2.8+ (Type-safe routes with Kotlinx Serialization)
 - **Serialization**: `kotlinx.serialization` (JSON format)
-- **Testing**: JUnit 4, MockK, Turbine, Google Truth, `kotlinx-coroutines-test`
+- **Testing**: JUnit 4, MockK, Turbine, Google Truth, Koin Test, `kotlinx-coroutines-test`
 
 ## Build & Test Commands
 - Run unit tests: `./gradlew testDebugUnitTest`
@@ -36,9 +37,10 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - Safe file naming sanitizes titles using `Regex("[^a-z0-9]")`.
 - The nested workout structure (`Workout` -> `Set` -> `Interval`) is flattened linearly for execution via `Workout.flatten()`.
 
-### 5. Compose & ViewModel Wiring
-- Nav routes are centralized in `KintsugiRunApp.kt`.
-- `WorkoutEditorViewModel` uses a dedicated `ViewModelProvider.Factory` to handle optional `fileName` parameters.
+### 5. Dependency Injection & Navigation Wiring
+- Dependency injection is configured in `AppModule.kt` and initialized in `KintsugiApp.kt`.
+- Navigation uses type-safe Kotlin Serializable routes defined in `Routes.kt` (`HomeRoute`, `WorkoutReviewRoute`, `WorkoutEditorRoute`, `ActiveWorkoutRoute`).
+- ViewModels are injected into composables using `koinViewModel()`.
 
 ## Code Style & Testing Expectations
 - Always write/update unit tests in `app/src/test/` for new ViewModel or business logic changes.

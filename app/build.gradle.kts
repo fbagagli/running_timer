@@ -68,12 +68,18 @@ dependencies {
     // Kotlin Serialization
     implementation(libs.kotlinx.serialization.json)
 
+    // Koin Dependency Injection
+    implementation(libs.koin.android)
+    implementation(libs.koin.androidx.compose)
+
     // Unit Testing
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.truth)
+    testImplementation(libs.koin.test)
+    testImplementation(libs.koin.test.junit4)
 
     // Instrumentation Testing
     androidTestImplementation(libs.androidx.junit)

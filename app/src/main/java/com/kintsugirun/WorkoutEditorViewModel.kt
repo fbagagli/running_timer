@@ -1,7 +1,6 @@
 package com.kintsugirun
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -146,18 +145,5 @@ class WorkoutEditorViewModel(
     suspend fun saveWorkout() {
         val currentWorkout = _workout.value ?: return
         repository.saveWorkout(currentWorkout, fileName)
-    }
-
-    class Factory(
-        private val repository: WorkoutRepository,
-        private val fileName: String?
-    ) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(WorkoutEditorViewModel::class.java)) {
-                return WorkoutEditorViewModel(repository, fileName) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
     }
 }
