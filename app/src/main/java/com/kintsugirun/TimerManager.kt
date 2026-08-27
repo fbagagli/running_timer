@@ -12,7 +12,8 @@ data class TimerState(
     val remainingSecondsInPhase: Int = 0,
     val totalElapsedSeconds: Int = 0,
     val isPlaying: Boolean = false,
-    val isFinished: Boolean = false
+    val isFinished: Boolean = false,
+    val repetitionInfo: String? = null
 )
 
 object TimerManager {
@@ -52,7 +53,8 @@ object TimerManager {
             remainingSecondsInPhase = firstStep.durationSeconds,
             totalElapsedSeconds = 0,
             isPlaying = true,
-            isFinished = false
+            isFinished = false,
+            repetitionInfo = firstStep.repetitionInfo
         )
 
         ttsManager?.speak(firstStep.message)
@@ -87,6 +89,44 @@ object TimerManager {
         totalElapsedMsAtPhaseStart = 0
     }
 
+    fun nextStep() {
+        if (currentStepIndex < currentWorkoutSteps.size - 1) {
+            moveToStep(currentStepIndex + 1)
+        }
+    }
+
+    fun previousStep() {
+        if (currentStepIndex > 0) {
+            moveToStep(currentStepIndex - 1)
+        }
+    }
+
+    private fun moveToStep(index: Int) {
+        // Calculate new totalElapsedMsAtPhaseStart
+        totalElapsedMsAtPhaseStart = 0
+        for (i in 0 until index) {
+            totalElapsedMsAtPhaseStart += currentWorkoutSteps[i].durationSeconds * 1000L
+        }
+
+        currentStepIndex = index
+        val nextStep = currentWorkoutSteps[currentStepIndex]
+        targetEndTimeMs = SystemClock.elapsedRealtime() + (nextStep.durationSeconds * 1000L)
+
+        _timerState.value = _timerState.value.copy(
+            currentPhaseName = nextStep.phaseName,
+            remainingSecondsInPhase = nextStep.durationSeconds,
+            totalElapsedSeconds = (totalElapsedMsAtPhaseStart / 1000).toInt(),
+            repetitionInfo = nextStep.repetitionInfo,
+            isFinished = false
+        )
+        ttsManager?.speak(nextStep.message)
+        
+        // If it was paused, we stay paused but at the new step
+        if (!_timerState.value.isPlaying) {
+            pauseTimeMs = SystemClock.elapsedRealtime()
+        }
+    }
+
     private fun startTimer() {
         timerJob?.cancel()
         timerJob = scope.launch {
@@ -118,7 +158,8 @@ object TimerManager {
                 _timerState.value = currentState.copy(
                     currentPhaseName = nextStep.phaseName,
                     remainingSecondsInPhase = nextStep.durationSeconds,
-                    totalElapsedSeconds = (totalElapsedMsAtPhaseStart / 1000).toInt()
+                    totalElapsedSeconds = (totalElapsedMsAtPhaseStart / 1000).toInt(),
+                    repetitionInfo = nextStep.repetitionInfo
                 )
                 ttsManager?.speak(nextStep.message)
             } else {

@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -78,6 +80,14 @@ fun ActiveWorkoutScreen(
                         style = MaterialTheme.typography.displaySmall
                     )
 
+                    timerState.repetitionInfo?.let {
+                        Text(
+                            text = "Repetition $it",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                    }
+
                     Spacer(modifier = Modifier.height(32.dp))
 
                     Text(
@@ -93,6 +103,13 @@ fun ActiveWorkoutScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
+                        IconButton(
+                            onClick = { viewModel.previousStep() },
+                            modifier = Modifier.size(64.dp)
+                        ) {
+                            Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous Step", modifier = Modifier.size(32.dp))
+                        }
+
                         if (timerState.isPlaying) {
                             FloatingActionButton(
                                 onClick = { viewModel.pauseTimer() },
@@ -109,15 +126,24 @@ fun ActiveWorkoutScreen(
                             }
                         }
 
-                        FloatingActionButton(
-                            onClick = {
-                                viewModel.stopTimer()
-                                onNavigateBack()
-                            },
-                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        IconButton(
+                            onClick = { viewModel.nextStep() },
+                            modifier = Modifier.size(64.dp)
                         ) {
-                            Icon(Icons.Filled.Stop, contentDescription = "Stop", modifier = Modifier.size(48.dp))
+                            Icon(Icons.Filled.SkipNext, contentDescription = "Next Step", modifier = Modifier.size(32.dp))
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
+
+                    FloatingActionButton(
+                        onClick = {
+                            viewModel.stopTimer()
+                            onNavigateBack()
+                        },
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ) {
+                        Icon(Icons.Filled.Stop, contentDescription = "Stop", modifier = Modifier.size(48.dp))
                     }
                 }
             }

@@ -46,6 +46,14 @@ class ActiveWorkoutViewModel(
         TimerManager.resume()
     }
 
+    fun nextStep() {
+        TimerManager.nextStep()
+    }
+
+    fun previousStep() {
+        TimerManager.previousStep()
+    }
+
     fun stopTimer() {
         TimerManager.stop()
         val serviceIntent = Intent(getApplication(), TimerService::class.java)

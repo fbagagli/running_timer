@@ -1,0 +1,45 @@
+# KintsugiRun — Agent Guidelines & Architecture Reference
+
+## Overview
+KintsugiRun is an Android interval timer app for running workouts built with Jetpack Compose, Kotlin Coroutines/Flow, and Android Foreground Services.
+
+## Tech Stack
+- **Language**: Kotlin (JVM 1.8 target)
+- **Framework**: Android SDK 34 (minSdk 24)
+- **UI**: Jetpack Compose with Material 3
+- **Navigation**: `androidx.navigation.compose`
+- **Serialization**: `kotlinx.serialization` (JSON format)
+- **Testing**: JUnit 4, MockK, Turbine, Google Truth, `kotlinx-coroutines-test`
+
+## Build & Test Commands
+- Run unit tests: `./gradlew testDebugUnitTest`
+- Assemble debug APK: `./gradlew assembleDebug`
+- Lint check: `./gradlew lintDebug`
+
+## Key Architectural Rules & Constraints
+
+### 1. Timing Engine (`TimerManager.kt`)
+- Timing **MUST** be calculated against `SystemClock.elapsedRealtime()` to avoid drift. Do NOT replace with pure `delay(1000)` tick loops.
+- Timer state is exposed via `StateFlow<TimerState>`.
+
+### 2. Background Execution (`TimerService.kt`)
+- Android 14 (API 34) requires `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` for foreground timer execution.
+- Maintain the `WAKE_LOCK` acquire/release lifecycle tied to `TimerState.isPlaying`.
+
+### 3. Audio & Voice Cues (`TtsManager.kt`)
+- Voice feedback uses Android `TextToSpeech`.
+- Handles queued messages if called before `OnInitListener` completes.
+
+### 4. Data Models & Storage (`WorkoutRepository.kt`)
+- Workouts are stored as standalone `.json` files in `context.filesDir`.
+- Safe file naming sanitizes titles using `Regex("[^a-z0-9]")`.
+- The nested workout structure (`Workout` -> `Set` -> `Interval`) is flattened linearly for execution via `Workout.flatten()`.
+
+### 5. Compose & ViewModel Wiring
+- Nav routes are centralized in `KintsugiRunApp.kt`.
+- `WorkoutEditorViewModel` uses a dedicated `ViewModelProvider.Factory` to handle optional `fileName` parameters.
+
+## Code Style & Testing Expectations
+- Always write/update unit tests in `app/src/test/` for new ViewModel or business logic changes.
+- Use `Turbine` for testing `StateFlow` and Flow emissions.
+- Use `MockK` for mocking dependencies.

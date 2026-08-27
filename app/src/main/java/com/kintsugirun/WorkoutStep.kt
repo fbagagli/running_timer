@@ -3,7 +3,8 @@ package com.kintsugirun
 data class WorkoutStep(
     val phaseName: String,
     val durationSeconds: Int,
-    val message: String
+    val message: String,
+    val repetitionInfo: String? = null
 )
 
 fun Workout.flatten(): List<WorkoutStep> {
@@ -14,11 +15,14 @@ fun Workout.flatten(): List<WorkoutStep> {
 
     // 2. Sets
     sets.forEach { set ->
-        repeat(set.repeats) {
+        repeat(set.repeats) { repeatIndex ->
             set.intervals.forEach { interval ->
-                // The phaseName could be the interval type (e.g., Run, Walk) or something like "Set 1 - Run"
-                // For simplicity, we use the interval type.
-                steps.add(WorkoutStep(interval.type, interval.durationSeconds, interval.message))
+                val repInfo = if (set.repeats > 1) {
+                    "${repeatIndex + 1} of ${set.repeats}"
+                } else {
+                    null
+                }
+                steps.add(WorkoutStep(interval.type, interval.durationSeconds, interval.message, repInfo))
             }
         }
     }
