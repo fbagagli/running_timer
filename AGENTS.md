@@ -4,8 +4,9 @@
 KintsugiRun is an Android interval timer app for running workouts built with Jetpack Compose, Kotlin Coroutines/Flow, and Android Foreground Services.
 
 ## Tech Stack
-- **Language**: Kotlin (JVM 1.8 target)
+- **Language**: Kotlin 2.0+ (JVM 17 target)
 - **Framework**: Android SDK 34 (minSdk 24)
+- **Build**: Gradle Version Catalog (`gradle/libs.versions.toml`), Kotlin Compose Plugin
 - **UI**: Jetpack Compose with Material 3
 - **Navigation**: `androidx.navigation.compose`
 - **Serialization**: `kotlinx.serialization` (JSON format)
