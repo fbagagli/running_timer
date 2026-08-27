@@ -8,54 +8,18 @@ data class Workout(
     @SerialName("workout_name")
     val workoutName: String,
 
-    @SerialName("warmup")
-    val warmup: Warmup,
+    @SerialName("warmup_seconds")
+    val warmupSeconds: Int = 300,
 
-    @SerialName("sets")
-    val sets: List<Set>,
+    @SerialName("run_seconds")
+    val runSeconds: Int = 120,
 
-    @SerialName("cooldown")
-    val cooldown: Cooldown
-)
-
-@Serializable
-data class Warmup(
-    @SerialName("duration_seconds")
-    val durationSeconds: Int,
-
-    @SerialName("message")
-    val message: String
-)
-
-@Serializable
-data class Set(
-    @SerialName("set_name")
-    val setName: String,
+    @SerialName("walk_seconds")
+    val walkSeconds: Int = 60,
 
     @SerialName("repeats")
-    val repeats: Int,
+    val repeats: Int = 5,
 
-    @SerialName("intervals")
-    val intervals: List<Interval>
-)
-
-@Serializable
-data class Interval(
-    @SerialName("type")
-    val type: String,
-
-    @SerialName("duration_seconds")
-    val durationSeconds: Int,
-
-    @SerialName("message")
-    val message: String
-)
-
-@Serializable
-data class Cooldown(
-    @SerialName("duration_seconds")
-    val durationSeconds: Int,
-
-    @SerialName("message")
-    val message: String
+    @SerialName("cooldown_seconds")
+    val cooldownSeconds: Int = 300
 )

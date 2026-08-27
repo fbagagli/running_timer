@@ -4,7 +4,6 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
 
@@ -35,18 +34,11 @@ class TimerManagerTest {
 
     private val sampleWorkout = Workout(
         workoutName = "Test Run",
-        warmup = Warmup(durationSeconds = 60, message = "Warmup start"),
-        sets = listOf(
-            Set(
-                setName = "Set 1",
-                repeats = 2,
-                intervals = listOf(
-                    Interval(type = "Run", durationSeconds = 30, message = "Run fast"),
-                    Interval(type = "Walk", durationSeconds = 30, message = "Walk easy")
-                )
-            )
-        ),
-        cooldown = Cooldown(durationSeconds = 60, message = "Cooldown now")
+        warmupSeconds = 60,
+        runSeconds = 30,
+        walkSeconds = 30,
+        repeats = 2,
+        cooldownSeconds = 60
     )
 
     @Before
@@ -69,7 +61,7 @@ class TimerManagerTest {
         assertThat(state.isFinished).isFalse()
         assertThat(state.repetitionInfo).isNull()
 
-        assertThat(voicePromptManager.spokenMessages).containsExactly("Warmup start")
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Warm up")
     }
 
     @Test
@@ -101,8 +93,8 @@ class TimerManagerTest {
         assertThat(state.repetitionInfo).isEqualTo("1 of 2")
 
         assertThat(voicePromptManager.spokenMessages).containsExactly(
-            "Warmup start",
-            "Run fast"
+            "Warm up",
+            "Run"
         ).inOrder()
     }
 
@@ -163,7 +155,7 @@ class TimerManagerTest {
         assertThat(state.totalElapsedSeconds).isEqualTo(60)
         assertThat(state.repetitionInfo).isEqualTo("1 of 2")
 
-        assertThat(voicePromptManager.spokenMessages).containsExactly("Warmup start", "Run fast").inOrder()
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Warm up", "Run").inOrder()
     }
 
     @Test

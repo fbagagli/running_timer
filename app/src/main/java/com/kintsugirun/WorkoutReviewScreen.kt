@@ -1,8 +1,8 @@
 package com.kintsugirun
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -51,68 +51,52 @@ fun WorkoutReviewScreen(
             )
         }
     ) { paddingValues ->
-        if (workout == null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else {
-            val totalDuration = workout!!.flatten().sumOf { it.durationSeconds }
+        workout?.let { currentWorkout ->
+            val totalDuration = currentWorkout.warmupSeconds +
+                    currentWorkout.repeats * (currentWorkout.runSeconds + currentWorkout.walkSeconds) +
+                    currentWorkout.cooldownSeconds
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(16.dp)
             ) {
-                Text(
-                    text = "Total Duration: ${formatTime(totalDuration)}",
-                    style = MaterialTheme.typography.titleLarge
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Workout Summary:",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LazyColumn(
+                Column(
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    item {
+                    Text(
+                        text = "Total Duration: ${formatTime(totalDuration)}",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    if (currentWorkout.warmupSeconds > 0) {
                         WorkoutPhaseCard(
                             phaseName = "Warmup",
-                            durationSeconds = workout!!.warmup.durationSeconds,
-                            details = workout!!.warmup.message
+                            durationSeconds = currentWorkout.warmupSeconds,
+                            details = "Gentle preparation pace"
                         )
                     }
 
-                    items(workout!!.sets.withIndex().toList()) { (index, set) ->
-                        WorkoutPhaseCard(
-                            phaseName = "Set ${index + 1}: ${set.setName}",
-                            durationSeconds = set.repeats * set.intervals.sumOf { it.durationSeconds },
-                            details = "${set.repeats} repeats of:\n" + set.intervals.joinToString("\n") {
-                                "  • ${it.type} (${formatTime(it.durationSeconds)})"
-                            }
-                        )
-                    }
+                    WorkoutPhaseCard(
+                        phaseName = "Intervals (${currentWorkout.repeats} Repetitions)",
+                        durationSeconds = currentWorkout.repeats * (currentWorkout.runSeconds + currentWorkout.walkSeconds),
+                        details = "• Run: ${formatTime(currentWorkout.runSeconds)}\n• Walk: ${formatTime(currentWorkout.walkSeconds)}"
+                    )
 
-                    item {
+                    if (currentWorkout.cooldownSeconds > 0) {
                         WorkoutPhaseCard(
                             phaseName = "Cooldown",
-                            durationSeconds = workout!!.cooldown.durationSeconds,
-                            details = workout!!.cooldown.message
+                            durationSeconds = currentWorkout.cooldownSeconds,
+                            details = "Recovery walking & stretching"
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 Button(
                     onClick = onStartWorkout,
@@ -123,6 +107,15 @@ fun WorkoutReviewScreen(
                     Text("Start Workout", style = MaterialTheme.typography.titleLarge)
                 }
             }
+        } ?: run {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
         }
     }
 }
@@ -130,9 +123,7 @@ fun WorkoutReviewScreen(
 @Composable
 fun WorkoutPhaseCard(phaseName: String, durationSeconds: Int, details: String = "") {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -156,10 +147,10 @@ fun WorkoutPhaseCard(phaseName: String, durationSeconds: Int, details: String = 
                 )
             }
             if (details.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = details,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

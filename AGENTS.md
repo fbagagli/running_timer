@@ -36,7 +36,7 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 ### 4. Data Models & Storage (`WorkoutRepository.kt`)
 - Workouts are stored as standalone `.json` files in `context.filesDir`.
 - Safe file naming sanitizes titles using `Regex("[^a-z0-9]")`.
-- The nested workout structure (`Workout` -> `Set` -> `Interval`) is flattened linearly for execution via `Workout.flatten()`.
+- The flat workout structure (`Workout` containing warmup, run, walk, repeats, cooldown) is expanded linearly via `Workout.flatten()`.
 
 ### 5. Dependency Injection & Navigation Wiring
 - Dependency injection is configured in `AppModule.kt` and initialized in `KintsugiApp.kt`.

@@ -36,19 +36,17 @@ class WorkoutEditorViewModelTest {
         val viewModel = WorkoutEditorViewModel(repository, null)
 
         viewModel.workout.test {
-            // First emission might be null or initial depending on StateFlow, await the valid state
             val workout = awaitItem()
-
-            // Advance coroutines for loadWorkout init logic
             testScheduler.advanceUntilIdle()
-
-            // Need to retrieve item again if first was null, but let's test if we eventually get the right one
             val actualWorkout = workout ?: awaitItem()
 
             assertThat(actualWorkout).isNotNull()
             assertThat(actualWorkout?.workoutName).isEqualTo("New Workout")
-            assertThat(actualWorkout?.sets).hasSize(1)
-            assertThat(actualWorkout?.sets?.first()?.intervals).hasSize(1)
+            assertThat(actualWorkout?.warmupSeconds).isEqualTo(300)
+            assertThat(actualWorkout?.runSeconds).isEqualTo(120)
+            assertThat(actualWorkout?.walkSeconds).isEqualTo(60)
+            assertThat(actualWorkout?.repeats).isEqualTo(5)
+            assertThat(actualWorkout?.cooldownSeconds).isEqualTo(300)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -68,67 +66,71 @@ class WorkoutEditorViewModelTest {
     }
 
     @Test
-    fun `updateWarmup correctly updates StateFlow`() = runTest {
+    fun `updateWarmupSeconds correctly updates StateFlow`() = runTest {
         val viewModel = WorkoutEditorViewModel(repository, null)
         testScheduler.advanceUntilIdle()
 
-        viewModel.updateWarmup(120, "Let's go")
+        viewModel.updateWarmupSeconds(180)
 
         viewModel.workout.test {
             val workout = awaitItem()
-            assertThat(workout?.warmup?.durationSeconds).isEqualTo(120)
-            assertThat(workout?.warmup?.message).isEqualTo("Let's go")
+            assertThat(workout?.warmupSeconds).isEqualTo(180)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun `addSet adds a new set to the workout`() = runTest {
+    fun `updateRunSeconds correctly updates StateFlow`() = runTest {
         val viewModel = WorkoutEditorViewModel(repository, null)
         testScheduler.advanceUntilIdle()
 
-        viewModel.addSet()
+        viewModel.updateRunSeconds(90)
 
         viewModel.workout.test {
             val workout = awaitItem()
-            assertThat(workout?.sets).hasSize(2)
-            assertThat(workout?.sets?.last()?.setName).isEqualTo("New Set")
-            assertThat(workout?.sets?.last()?.intervals).isEmpty()
+            assertThat(workout?.runSeconds).isEqualTo(90)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun `addIntervalToSet adds an interval to the correct set`() = runTest {
+    fun `updateWalkSeconds correctly updates StateFlow`() = runTest {
         val viewModel = WorkoutEditorViewModel(repository, null)
         testScheduler.advanceUntilIdle()
 
-        // Default has 1 set with 1 interval. Let's add another interval to set 0.
-        viewModel.addIntervalToSet(0)
+        viewModel.updateWalkSeconds(45)
 
         viewModel.workout.test {
             val workout = awaitItem()
-            assertThat(workout?.sets?.first()?.intervals).hasSize(2)
-            assertThat(workout?.sets?.first()?.intervals?.last()?.type).isEqualTo("run")
-            assertThat(workout?.sets?.first()?.intervals?.last()?.durationSeconds).isEqualTo(60)
+            assertThat(workout?.walkSeconds).isEqualTo(45)
             cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun `updateInterval modifies correct interval within correct set`() = runTest {
+    fun `updateRepeats correctly updates StateFlow`() = runTest {
         val viewModel = WorkoutEditorViewModel(repository, null)
         testScheduler.advanceUntilIdle()
 
-        // Modify the first interval of the first set
-        viewModel.updateInterval(0, 0, "walk", 30, "Walk time")
+        viewModel.updateRepeats(8)
 
         viewModel.workout.test {
             val workout = awaitItem()
-            val interval = workout?.sets?.first()?.intervals?.first()
-            assertThat(interval?.type).isEqualTo("walk")
-            assertThat(interval?.durationSeconds).isEqualTo(30)
-            assertThat(interval?.message).isEqualTo("Walk time")
+            assertThat(workout?.repeats).isEqualTo(8)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `updateCooldownSeconds correctly updates StateFlow`() = runTest {
+        val viewModel = WorkoutEditorViewModel(repository, null)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.updateCooldownSeconds(240)
+
+        viewModel.workout.test {
+            val workout = awaitItem()
+            assertThat(workout?.cooldownSeconds).isEqualTo(240)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -138,7 +140,6 @@ class WorkoutEditorViewModelTest {
         val viewModel = WorkoutEditorViewModel(repository, null)
         testScheduler.advanceUntilIdle()
 
-        // We use an arbitrary modified workout name to verify what's saved
         viewModel.updateWorkoutName("Target Save")
 
         viewModel.saveWorkout()

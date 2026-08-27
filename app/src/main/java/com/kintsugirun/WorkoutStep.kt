@@ -11,24 +11,25 @@ fun Workout.flatten(): List<WorkoutStep> {
     val steps = mutableListOf<WorkoutStep>()
 
     // 1. Warmup
-    steps.add(WorkoutStep("Warmup", warmup.durationSeconds, warmup.message))
+    if (warmupSeconds > 0) {
+        steps.add(WorkoutStep("Warmup", warmupSeconds, "Warm up"))
+    }
 
-    // 2. Sets
-    sets.forEach { set ->
-        repeat(set.repeats) { repeatIndex ->
-            set.intervals.forEach { interval ->
-                val repInfo = if (set.repeats > 1) {
-                    "${repeatIndex + 1} of ${set.repeats}"
-                } else {
-                    null
-                }
-                steps.add(WorkoutStep(interval.type, interval.durationSeconds, interval.message, repInfo))
-            }
+    // 2. Repetitions of Run + Walk
+    for (i in 0 until repeats) {
+        val repInfo = if (repeats > 1) "${i + 1} of $repeats" else null
+        if (runSeconds > 0) {
+            steps.add(WorkoutStep("Run", runSeconds, "Run", repInfo))
+        }
+        if (walkSeconds > 0) {
+            steps.add(WorkoutStep("Walk", walkSeconds, "Walk", repInfo))
         }
     }
 
     // 3. Cooldown
-    steps.add(WorkoutStep("Cooldown", cooldown.durationSeconds, cooldown.message))
+    if (cooldownSeconds > 0) {
+        steps.add(WorkoutStep("Cooldown", cooldownSeconds, "Cool down"))
+    }
 
     return steps
 }

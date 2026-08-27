@@ -23,123 +23,42 @@ class WorkoutEditorViewModel(
     private fun loadWorkout() {
         viewModelScope.launch {
             if (fileName != null) {
-                val loaded = repository.getWorkoutByFileName(fileName)
-                _workout.value = loaded
+                _workout.value = repository.getWorkoutByFileName(fileName)
             } else {
-                // Initialize default template
                 _workout.value = Workout(
                     workoutName = "New Workout",
-                    warmup = Warmup(durationSeconds = 0, message = ""),
-                    sets = listOf(
-                        Set(
-                            setName = "New Set",
-                            repeats = 1,
-                            intervals = listOf(
-                                Interval(type = "run", durationSeconds = 60, message = "Run")
-                            )
-                        )
-                    ),
-                    cooldown = Cooldown(durationSeconds = 0, message = "")
+                    warmupSeconds = 300,
+                    runSeconds = 120,
+                    walkSeconds = 60,
+                    repeats = 5,
+                    cooldownSeconds = 300
                 )
             }
         }
     }
 
     fun updateWorkoutName(name: String) {
-        _workout.update { current ->
-            current?.copy(workoutName = name)
-        }
+        _workout.update { it?.copy(workoutName = name) }
     }
 
-    fun updateWarmup(duration: Int, message: String) {
-        _workout.update { current ->
-            current?.copy(warmup = current.warmup.copy(durationSeconds = duration, message = message))
-        }
+    fun updateWarmupSeconds(seconds: Int) {
+        _workout.update { it?.copy(warmupSeconds = seconds) }
     }
 
-    fun updateCooldown(duration: Int, message: String) {
-        _workout.update { current ->
-            current?.copy(cooldown = current.cooldown.copy(durationSeconds = duration, message = message))
-        }
+    fun updateRunSeconds(seconds: Int) {
+        _workout.update { it?.copy(runSeconds = seconds) }
     }
 
-    fun addSet() {
-        _workout.update { current ->
-            current?.copy(
-                sets = current.sets + Set(
-                    setName = "New Set",
-                    repeats = 1,
-                    intervals = listOf()
-                )
-            )
-        }
+    fun updateWalkSeconds(seconds: Int) {
+        _workout.update { it?.copy(walkSeconds = seconds) }
     }
 
-    fun updateSetName(setIndex: Int, name: String) {
-        _workout.update { current ->
-            if (current == null) return@update null
-            if (setIndex !in current.sets.indices) return@update current
-
-            val updatedSets = current.sets.toMutableList()
-            updatedSets[setIndex] = updatedSets[setIndex].copy(setName = name)
-
-            current.copy(sets = updatedSets)
-        }
+    fun updateRepeats(repeats: Int) {
+        _workout.update { it?.copy(repeats = repeats) }
     }
 
-    fun updateSetRepeats(setIndex: Int, repeats: Int) {
-        _workout.update { current ->
-            if (current == null) return@update null
-            if (setIndex !in current.sets.indices) return@update current
-
-            val updatedSets = current.sets.toMutableList()
-            updatedSets[setIndex] = updatedSets[setIndex].copy(repeats = repeats)
-
-            current.copy(sets = updatedSets)
-        }
-    }
-
-    fun addIntervalToSet(setIndex: Int) {
-        _workout.update { current ->
-            if (current == null) return@update null
-            if (setIndex !in current.sets.indices) return@update current
-
-            val updatedSets = current.sets.toMutableList()
-            val targetSet = updatedSets[setIndex]
-
-            val updatedIntervals = targetSet.intervals + Interval(
-                type = "run",
-                durationSeconds = 60,
-                message = "Run"
-            )
-
-            updatedSets[setIndex] = targetSet.copy(intervals = updatedIntervals)
-
-            current.copy(sets = updatedSets)
-        }
-    }
-
-    fun updateInterval(setIndex: Int, intervalIndex: Int, name: String, duration: Int, message: String) {
-        _workout.update { current ->
-            if (current == null) return@update null
-            if (setIndex !in current.sets.indices) return@update current
-
-            val targetSet = current.sets[setIndex]
-            if (intervalIndex !in targetSet.intervals.indices) return@update current
-
-            val updatedSets = current.sets.toMutableList()
-            val updatedIntervals = targetSet.intervals.toMutableList()
-
-            updatedIntervals[intervalIndex] = updatedIntervals[intervalIndex].copy(
-                type = name,
-                durationSeconds = duration,
-                message = message
-            )
-
-            updatedSets[setIndex] = targetSet.copy(intervals = updatedIntervals)
-
-            current.copy(sets = updatedSets)
-        }
+    fun updateCooldownSeconds(seconds: Int) {
+        _workout.update { it?.copy(cooldownSeconds = seconds) }
     }
 
     suspend fun saveWorkout() {
