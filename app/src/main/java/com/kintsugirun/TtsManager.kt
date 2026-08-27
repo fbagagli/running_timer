@@ -5,7 +5,7 @@ import android.speech.tts.TextToSpeech
 import android.util.Log
 import java.util.Locale
 
-class TtsManager(context: Context) : TextToSpeech.OnInitListener {
+class TtsManager(context: Context) : TextToSpeech.OnInitListener, VoicePromptManager {
     private var tts: TextToSpeech? = null
     private var isReady = false
     private var queuedMessage: String? = null
@@ -31,7 +31,7 @@ class TtsManager(context: Context) : TextToSpeech.OnInitListener {
         }
     }
 
-    fun speak(message: String) {
+    override fun speak(message: String) {
         if (isReady) {
             tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, null)
         } else {

@@ -6,11 +6,12 @@ import org.koin.androidx.viewmodel.dsl.viewModel
 import org.koin.dsl.module
 
 val appModule = module {
+    single<TimeProvider> { SystemTimeProvider() }
+    single { TimerManager(get()) }
     single { WorkoutRepository(androidContext()) }
-    single { TimerManager }
 
     viewModel { HomeViewModel(get()) }
     viewModel { WorkoutReviewViewModel(get()) }
     viewModel { (fileName: String?) -> WorkoutEditorViewModel(get(), fileName) }
-    viewModel { ActiveWorkoutViewModel(get(), androidApplication()) }
+    viewModel { ActiveWorkoutViewModel(get(), get(), androidApplication()) }
 }

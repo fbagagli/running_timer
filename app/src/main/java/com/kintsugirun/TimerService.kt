@@ -15,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import org.koin.android.ext.android.inject
 
 class TimerService : Service() {
 
@@ -23,12 +24,14 @@ class TimerService : Service() {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var wakeLock: PowerManager.WakeLock? = null
 
+    private val timerManager: TimerManager by inject()
+
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
 
         // Observe the timer state to auto-stop the service or manage wake lock when paused
-        TimerManager.timerState.onEach { state ->
+        timerManager.timerState.onEach { state ->
             if (state.isFinished) {
                 stopSelf()
             } else if (!state.isPlaying) {
@@ -90,7 +93,7 @@ class TimerService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? {
-        return null // We are not binding to this service, using TimerManager singleton
+        return null // We are not binding to this service, using TimerManager via Koin
     }
 
     private fun createNotificationChannel() {

@@ -12,13 +12,14 @@ import kotlinx.coroutines.launch
 
 class ActiveWorkoutViewModel(
     private val repository: WorkoutRepository,
+    private val timerManager: TimerManager,
     application: Application
 ) : AndroidViewModel(application) {
 
     private val _workout = MutableStateFlow<Workout?>(null)
     val workout: StateFlow<Workout?> = _workout.asStateFlow()
 
-    val timerState: StateFlow<TimerState> = TimerManager.timerState
+    val timerState: StateFlow<TimerState> = timerManager.timerState
 
     fun loadWorkout(fileName: String) {
         viewModelScope.launch {
@@ -35,35 +36,28 @@ class ActiveWorkoutViewModel(
         }
         ContextCompat.startForegroundService(getApplication(), serviceIntent)
 
-        TimerManager.start(currentWorkout)
+        timerManager.start(currentWorkout)
     }
 
     fun pauseTimer() {
-        TimerManager.pause()
+        timerManager.pause()
     }
 
     fun resumeTimer() {
-        TimerManager.resume()
+        timerManager.resume()
     }
 
     fun nextStep() {
-        TimerManager.nextStep()
+        timerManager.nextStep()
     }
 
     fun previousStep() {
-        TimerManager.previousStep()
+        timerManager.previousStep()
     }
 
     fun stopTimer() {
-        TimerManager.stop()
+        timerManager.stop()
         val serviceIntent = Intent(getApplication(), TimerService::class.java)
         getApplication<Application>().stopService(serviceIntent)
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        // If we want to ensure it stops if the viewmodel dies, we could call stopTimer here.
-        // But for a foreground service timer, we might want it to survive.
-        // Given the requirement to navigate back and stop, stopping it when explicitly requested is better.
     }
 }

@@ -1,7 +1,6 @@
 package com.kintsugirun
 
 import kotlinx.coroutines.*
-import android.os.SystemClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,12 +15,15 @@ data class TimerState(
     val repetitionInfo: String? = null
 )
 
-object TimerManager {
+class TimerManager(
+    private val timeProvider: TimeProvider = SystemTimeProvider(),
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+) {
 
     private val _timerState = MutableStateFlow(TimerState())
     val timerState: StateFlow<TimerState> = _timerState.asStateFlow()
 
-    private var ttsManager: TtsManager? = null
+    private var voicePromptManager: VoicePromptManager? = null
     private var currentWorkoutSteps: List<WorkoutStep> = emptyList()
     private var currentStepIndex = 0
     private var timerJob: Job? = null
@@ -30,11 +32,12 @@ object TimerManager {
     private var totalElapsedMsAtPhaseStart: Long = 0
     private var pauseTimeMs: Long = 0
 
-    // Coroutine scope for the timer. We use a custom scope so it's not tied to any lifecycle.
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    fun setVoicePromptManager(voicePromptManager: VoicePromptManager?) {
+        this.voicePromptManager = voicePromptManager
+    }
 
     fun initTts(ttsManager: TtsManager) {
-        this.ttsManager = ttsManager
+        this.voicePromptManager = ttsManager
     }
 
     fun start(workout: Workout) {
@@ -46,7 +49,7 @@ object TimerManager {
 
         val firstStep = currentWorkoutSteps[currentStepIndex]
 
-        targetEndTimeMs = SystemClock.elapsedRealtime() + (firstStep.durationSeconds * 1000L)
+        targetEndTimeMs = timeProvider.elapsedRealtime() + (firstStep.durationSeconds * 1000L)
 
         _timerState.value = TimerState(
             currentPhaseName = firstStep.phaseName,
@@ -57,14 +60,14 @@ object TimerManager {
             repetitionInfo = firstStep.repetitionInfo
         )
 
-        ttsManager?.speak(firstStep.message)
+        voicePromptManager?.speak(firstStep.message)
         startTimer()
     }
 
     fun pause() {
         if (_timerState.value.isPlaying) {
             timerJob?.cancel()
-            pauseTimeMs = SystemClock.elapsedRealtime()
+            pauseTimeMs = timeProvider.elapsedRealtime()
             _timerState.value = _timerState.value.copy(isPlaying = false)
         }
     }
@@ -72,7 +75,7 @@ object TimerManager {
     fun resume() {
         if (!_timerState.value.isPlaying && !_timerState.value.isFinished && currentWorkoutSteps.isNotEmpty()) {
             // Adjust target end time based on how long it was paused
-            val pausedDurationMs = SystemClock.elapsedRealtime() - pauseTimeMs
+            val pausedDurationMs = timeProvider.elapsedRealtime() - pauseTimeMs
             targetEndTimeMs += pausedDurationMs
 
             _timerState.value = _timerState.value.copy(isPlaying = true)
@@ -110,7 +113,7 @@ object TimerManager {
 
         currentStepIndex = index
         val nextStep = currentWorkoutSteps[currentStepIndex]
-        targetEndTimeMs = SystemClock.elapsedRealtime() + (nextStep.durationSeconds * 1000L)
+        targetEndTimeMs = timeProvider.elapsedRealtime() + (nextStep.durationSeconds * 1000L)
 
         _timerState.value = _timerState.value.copy(
             currentPhaseName = nextStep.phaseName,
@@ -119,11 +122,11 @@ object TimerManager {
             repetitionInfo = nextStep.repetitionInfo,
             isFinished = false
         )
-        ttsManager?.speak(nextStep.message)
-        
+        voicePromptManager?.speak(nextStep.message)
+
         // If it was paused, we stay paused but at the new step
         if (!_timerState.value.isPlaying) {
-            pauseTimeMs = SystemClock.elapsedRealtime()
+            pauseTimeMs = timeProvider.elapsedRealtime()
         }
     }
 
@@ -137,12 +140,10 @@ object TimerManager {
         }
     }
 
-    private fun tick() {
-        val currentTimeMs = SystemClock.elapsedRealtime()
-        val currentState = _timerState.value
+    internal fun tick() {
+        val currentTimeMs = timeProvider.elapsedRealtime()
 
-        if (currentTimeMs >= targetEndTimeMs) {
-            // Step finished, move to next step
+        while (currentTimeMs >= targetEndTimeMs && _timerState.value.isPlaying) {
             val finishedStep = currentWorkoutSteps[currentStepIndex]
             totalElapsedMsAtPhaseStart += finishedStep.durationSeconds * 1000L
 
@@ -150,43 +151,42 @@ object TimerManager {
 
             if (currentStepIndex < currentWorkoutSteps.size) {
                 val nextStep = currentWorkoutSteps[currentStepIndex]
-
-                // Calculate next target time. If we overshot slightly, we subtract the overshoot
-                // by just adding duration to previous target.
                 targetEndTimeMs += (nextStep.durationSeconds * 1000L)
 
-                _timerState.value = currentState.copy(
+                _timerState.value = _timerState.value.copy(
                     currentPhaseName = nextStep.phaseName,
                     remainingSecondsInPhase = nextStep.durationSeconds,
                     totalElapsedSeconds = (totalElapsedMsAtPhaseStart / 1000).toInt(),
                     repetitionInfo = nextStep.repetitionInfo
                 )
-                ttsManager?.speak(nextStep.message)
+                voicePromptManager?.speak(nextStep.message)
             } else {
                 // Workout finished
-                _timerState.value = currentState.copy(
+                _timerState.value = _timerState.value.copy(
                     remainingSecondsInPhase = 0,
                     totalElapsedSeconds = (totalElapsedMsAtPhaseStart / 1000).toInt(),
                     isPlaying = false,
                     isFinished = true
                 )
-                ttsManager?.speak("Workout complete. Great job!")
+                voicePromptManager?.speak("Workout complete. Great job!")
                 timerJob?.cancel()
+                return
             }
-        } else {
-            // Still in current step
-            val remainingMs = targetEndTimeMs - currentTimeMs
-            val remainingSeconds = (remainingMs / 1000).toInt() + 1 // Add 1 so it hits 0 exactly when transitioning
+        }
+
+        if (_timerState.value.isPlaying && currentStepIndex < currentWorkoutSteps.size) {
+            val remainingMs = max(0L, targetEndTimeMs - currentTimeMs)
+            val remainingSeconds = ((remainingMs + 999) / 1000).toInt()
 
             val currentPhaseDurationMs = currentWorkoutSteps[currentStepIndex].durationSeconds * 1000L
             val elapsedInPhaseMs = currentPhaseDurationMs - remainingMs
             val totalElapsedSeconds = ((totalElapsedMsAtPhaseStart + elapsedInPhaseMs) / 1000).toInt()
 
-            // Only update flow if value changed (avoids unnecessary recompositions)
+            val currentState = _timerState.value
             if (currentState.remainingSecondsInPhase != remainingSeconds ||
                 currentState.totalElapsedSeconds != totalElapsedSeconds) {
                 _timerState.value = currentState.copy(
-                    remainingSecondsInPhase = max(0, remainingSeconds),
+                    remainingSecondsInPhase = remainingSeconds,
                     totalElapsedSeconds = totalElapsedSeconds
                 )
             }
