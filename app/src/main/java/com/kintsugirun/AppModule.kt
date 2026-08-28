@@ -19,7 +19,7 @@ val appModule = module {
         ).build()
     }
     single { get<AppDatabase>().workoutDao() }
-    single { WorkoutRepository(get(), androidContext()) }
+    single { WorkoutRepository(get()) }
 
     viewModel { HomeViewModel(get()) }
     viewModel { WorkoutReviewViewModel(get()) }

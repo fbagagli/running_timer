@@ -1,6 +1,5 @@
 package com.kintsugirun
 
-import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,12 +24,6 @@ class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
     fun deleteWorkout(id: Long) {
         viewModelScope.launch {
             repository.deleteWorkout(id)
-        }
-    }
-
-    fun importWorkout(uri: Uri) {
-        viewModelScope.launch {
-            repository.importWorkoutFromUri(uri)
         }
     }
 }
