@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KintsugiRun — Workout Creator & QR Generator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <!-- QRCode.js Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --primary: #f97316;
+      --primary-hover: #ea580c;
+      --primary-light: rgba(249, 115, 22, 0.15);
+      --accent: #38bdf8;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --input-bg: #0f172a;
+      --input-border: #475569;
+      --run-color: #ef4444;
+      --walk-color: #10b981;
+      --warmup-color: #f59e0b;
+      --cooldown-color: #6366f1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      max-width: 1000px;
+      width: 100%;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .logo-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 0.4rem 1rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      border: 1px solid rgba(249, 115, 22, 0.3);
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 0.5rem;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    .presets-bar {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 2rem;
+    }
+
+    .preset-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .preset-btn:hover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    .app-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 820px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+      color: var(--text-muted);
+    }
+
+    input[type="text"] {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text-main);
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--primary);
+    }
+
+    .time-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .time-field {
+      display: flex;
+      align-items: center;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      padding: 0.5rem 0.75rem;
+    }
+
+    .time-field:focus-within {
+      border-color: var(--primary);
+    }
+
+    .time-field input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .time-field span {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .stepper {
+      display: flex;
+      align-items: center;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .stepper button {
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-size: 1.25rem;
+      font-weight: 700;
+      padding: 0.5rem 1.25rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .stepper button:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--primary);
+    }
+
+    .stepper input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-main);
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+      outline: none;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Right column: Summary and QR */
+    .qr-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .qr-box {
+      background: #ffffff;
+      padding: 1.25rem;
+      border-radius: 12px;
+      margin: 1.25rem 0;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .stats-summary {
+      width: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    .stat-row:last-child {
+      margin-bottom: 0;
+      padding-top: 0.5rem;
+      border-top: 1px dashed var(--input-border);
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--primary);
+    }
+
+    .badge-run { color: var(--run-color); font-weight: 600; }
+    .badge-walk { color: var(--walk-color); font-weight: 600; }
+
+    .instructions {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-top: 0.5rem;
+    }
+
+    .uri-display {
+      width: 100%;
+      background: rgba(0,0,0,0.3);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      word-break: break-all;
+      margin-top: 1rem;
+      text-align: left;
+    }
+
+    .copy-btn {
+      margin-top: 0.5rem;
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      color: var(--text-main);
+      border-color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <div class="logo-badge">⚡ KintsugiRun Companion</div>
+      <h1>Workout Creator & QR Generator</h1>
+      <p>Configure interval running workouts on PC and scan with your phone in seconds.</p>
+    </header>
+
+    <div class="presets-bar">
+      <button class="preset-btn" onclick="applyPreset('Couch to 5K — Week 1', 5, 0, 1, 0, 1, 30, 8, 5, 0)">C25K Week 1</button>
+      <button class="preset-btn" onclick="applyPreset('5K Speed Intervals', 5, 0, 3, 0, 2, 0, 5, 5, 0)">5K Speed Intervals</button>
+      <button class="preset-btn" onclick="applyPreset('Easy Run/Walk', 3, 0, 2, 0, 1, 0, 6, 3, 0)">Easy Run/Walk</button>
+      <button class="preset-btn" onclick="applyPreset('Tabata Sprint', 5, 0, 0, 20, 0, 10, 8, 3, 0)">Tabata Sprint</button>
+    </div>
+
+    <div class="app-layout">
+      <!-- Left: Form -->
+      <div class="card">
+        <div class="card-title">📝 Workout Details</div>
+
+        <div class="form-group">
+          <label for="workoutName">Workout Name</label>
+          <input type="text" id="workoutName" value="5K Interval Training" oninput="updateAll()">
+        </div>
+
+        <div class="form-group">
+          <label>Warmup Duration</label>
+          <div class="time-inputs">
+            <div class="time-field"><input type="number" id="warmupMin" value="5" min="0" max="120" oninput="updateAll()"><span>min</span></div>
+            <div class="time-field"><input type="number" id="warmupSec" value="0" min="0" max="59" step="5" oninput="updateAll()"><span>sec</span></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label><span class="badge-run">●</span> Run Interval Duration</label>
+          <div class="time-inputs">
+            <div class="time-field"><input type="number" id="runMin" value="2" min="0" max="60" oninput="updateAll()"><span>min</span></div>
+            <div class="time-field"><input type="number" id="runSec" value="0" min="0" max="59" step="5" oninput="updateAll()"><span>sec</span></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label><span class="badge-walk">●</span> Walk Interval Duration</label>
+          <div class="time-inputs">
+            <div class="time-field"><input type="number" id="walkMin" value="1" min="0" max="60" oninput="updateAll()"><span>min</span></div>
+            <div class="time-field"><input type="number" id="walkSec" value="0" min="0" max="59" step="5" oninput="updateAll()"><span>sec</span></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Interval Repetitions</label>
+          <div class="stepper">
+            <button type="button" onclick="stepRepeats(-1)">−</button>
+            <input type="number" id="repeats" value="6" min="1" max="100" oninput="updateAll()">
+            <button type="button" onclick="stepRepeats(1)">+</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Cooldown Duration</label>
+          <div class="time-inputs">
+            <div class="time-field"><input type="number" id="cooldownMin" value="5" min="0" max="120" oninput="updateAll()"><span>min</span></div>
+            <div class="time-field"><input type="number" id="cooldownSec" value="0" min="0" max="59" step="5" oninput="updateAll()"><span>sec</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Summary & QR -->
+      <div class="card qr-container">
+        <div class="card-title">📱 Scan with KintsugiRun</div>
+
+        <div class="stats-summary">
+          <div class="stat-row">
+            <span>Warmup & Cooldown</span>
+            <span id="warmupCooldownText">10:00</span>
+          </div>
+          <div class="stat-row">
+            <span>Intervals</span>
+            <span id="intervalsText">6 × (02:00 Run / 01:00 Walk)</span>
+          </div>
+          <div class="stat-row">
+            <span>Total Run Time</span>
+            <span id="totalRunText" class="badge-run">12:00</span>
+          </div>
+          <div class="stat-row">
+            <span>Total Duration</span>
+            <span id="totalDurationText">28:00</span>
+          </div>
+        </div>
+
+        <div class="qr-box">
+          <div id="qrcode"></div>
+        </div>
+
+        <p class="instructions">
+          Point your phone camera using the <strong>Scan QR</strong> icon in KintsugiRun to import instantly.
+        </p>
+
+        <div class="uri-display" id="uriDisplay">kintsugirun://...</div>
+        <button class="copy-btn" onclick="copyUri()">📋 Copy Deep Link</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let qrcode = null;
+
+    function formatMmSs(totalSeconds) {
+      const mins = Math.floor(totalSeconds / 60);
+      const secs = totalSeconds % 60;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function formatTimeVerbose(totalSeconds) {
+      const hrs = Math.floor(totalSeconds / 3600);
+      const mins = Math.floor((totalSeconds % 3600) / 60);
+      const secs = totalSeconds % 60;
+      if (hrs > 0) {
+        return `${hrs}h ${mins}m ${secs > 0 ? secs + 's' : ''}`;
+      }
+      return `${mins}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function stepRepeats(delta) {
+      const el = document.getElementById('repeats');
+      let val = (parseInt(el.value, 10) || 1) + delta;
+      el.value = Math.max(1, val);
+      updateAll();
+    }
+
+    function applyPreset(name, wMin, wSec, rMin, rSec, kMin, kSec, reps, cMin, cSec) {
+      document.getElementById('workoutName').value = name;
+      document.getElementById('warmupMin').value = wMin;
+      document.getElementById('warmupSec').value = wSec;
+      document.getElementById('runMin').value = rMin;
+      document.getElementById('runSec').value = rSec;
+      document.getElementById('walkMin').value = kMin;
+      document.getElementById('walkSec').value = kSec;
+      document.getElementById('repeats').value = reps;
+      document.getElementById('cooldownMin').value = cMin;
+      document.getElementById('cooldownSec').value = cSec;
+      updateAll();
+    }
+
+    function updateAll() {
+      const name = document.getElementById('workoutName').value.trim() || 'Workout';
+      const wSec = (parseInt(document.getElementById('warmupMin').value, 10) || 0) * 60 + (parseInt(document.getElementById('warmupSec').value, 10) || 0);
+      const rSec = (parseInt(document.getElementById('runMin').value, 10) || 0) * 60 + (parseInt(document.getElementById('runSec').value, 10) || 0);
+      const kSec = (parseInt(document.getElementById('walkMin').value, 10) || 0) * 60 + (parseInt(document.getElementById('walkSec').value, 10) || 0);
+      const reps = Math.max(1, parseInt(document.getElementById('repeats').value, 10) || 1);
+      const cSec = (parseInt(document.getElementById('cooldownMin').value, 10) || 0) * 60 + (parseInt(document.getElementById('cooldownSec').value, 10) || 0);
+
+      const totalSeconds = wSec + reps * (rSec + kSec) + cSec;
+      const totalRunSeconds = reps * rSec;
+
+      // Update Summary Text
+      document.getElementById('warmupCooldownText').innerText = `${formatMmSs(wSec)} / ${formatMmSs(cSec)}`;
+      document.getElementById('intervalsText').innerText = `${reps} × (${formatMmSs(rSec)} / ${formatMmSs(kSec)})`;
+      document.getElementById('totalRunText').innerText = formatTimeVerbose(totalRunSeconds);
+      document.getElementById('totalDurationText').innerText = formatTimeVerbose(totalSeconds);
+
+      // Build Deep Link URI
+      const encodedName = encodeURIComponent(name);
+      const uri = `kintsugirun://workout?name=${encodedName}&w=${wSec}&r=${rSec}&k=${kSec}&n=${reps}&c=${cSec}`;
+      document.getElementById('uriDisplay').innerText = uri;
+
+      // Generate QR Code
+      const qrEl = document.getElementById('qrcode');
+      qrEl.innerHTML = '';
+      qrcode = new QRCode(qrEl, {
+        text: uri,
+        width: 220,
+        height: 220,
+        colorDark: '#0f172a',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+
+    function copyUri() {
+      const uri = document.getElementById('uriDisplay').innerText;
+      navigator.clipboard.writeText(uri).then(() => {
+        alert('Deep link copied to clipboard!');
+      });
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      updateAll();
+    });
+  </script>
+</body>
+</html>

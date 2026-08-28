@@ -7,11 +7,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.google.mlkit.vision.barcode.common.Barcode
+import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
+import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -23,11 +29,51 @@ fun HomeScreen(
 ) {
     val workouts by viewModel.workouts.collectAsState()
     var workoutToDelete by remember { mutableStateOf<Workout?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    val scanner = remember(context) {
+        val options = GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(Barcode.FORMAT_QR_CODE)
+            .enableAutoZoom()
+            .build()
+        GmsBarcodeScanning.getClient(context, options)
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("KintsugiRun Workouts") }
+                title = { Text("KintsugiRun Workouts") },
+                actions = {
+                    IconButton(onClick = {
+                        scanner.startScan()
+                            .addOnSuccessListener { barcode ->
+                                val rawValue = barcode.rawValue
+                                if (rawValue != null) {
+                                    val parsedWorkout = WorkoutQrHelper.parseWorkoutFromUri(rawValue)
+                                    if (parsedWorkout != null) {
+                                        viewModel.saveWorkout(parsedWorkout)
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("Imported: ${parsedWorkout.workoutName}")
+                                        }
+                                    } else {
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("Invalid KintsugiRun QR code")
+                                        }
+                                    }
+                                }
+                            }
+                            .addOnFailureListener {
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("Scan cancelled or failed")
+                                }
+                            }
+                    }) {
+                        Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan QR Code")
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -46,7 +92,7 @@ fun HomeScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No workouts found. Tap 'Create Workout' to get started.",
+                    text = "No workouts found. Tap 'Create Workout' or scan a QR code.",
                     style = MaterialTheme.typography.bodyLarge
                 )
             }

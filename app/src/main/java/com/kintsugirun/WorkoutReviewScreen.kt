@@ -1,5 +1,6 @@
 package com.kintsugirun
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -8,10 +9,12 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.QrCode
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,6 +28,7 @@ fun WorkoutReviewScreen(
 ) {
     val workout by viewModel.workout.collectAsState()
     var announceRepetitions by rememberSaveable { mutableStateOf(false) }
+    var showQrDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(workoutId) {
         viewModel.loadWorkout(workoutId)
@@ -43,6 +47,12 @@ fun WorkoutReviewScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showQrDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.QrCode,
+                            contentDescription = "Share QR Code"
+                        )
+                    }
                     IconButton(onClick = { onEditWorkout(workoutId) }) {
                         Icon(
                             imageVector = Icons.Filled.Edit,
@@ -128,6 +138,46 @@ fun WorkoutReviewScreen(
                 ) {
                     Text("Start Workout", style = MaterialTheme.typography.titleLarge)
                 }
+            }
+
+            if (showQrDialog) {
+                val qrUri = WorkoutQrHelper.encodeWorkoutToUri(currentWorkout)
+                val qrBitmap = remember(qrUri) {
+                    WorkoutQrHelper.generateQrBitmap(qrUri, 512)
+                }
+
+                AlertDialog(
+                    onDismissRequest = { showQrDialog = false },
+                    title = { Text("Share Workout") },
+                    text = {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = currentWorkout.workoutName,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Image(
+                                bitmap = qrBitmap.asImageBitmap(),
+                                contentDescription = "Workout QR Code",
+                                modifier = Modifier.size(240.dp)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Scan with KintsugiRun to import",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = { showQrDialog = false }) {
+                            Text("Close")
+                        }
+                    }
+                )
             }
         } ?: run {
             Box(

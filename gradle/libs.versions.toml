@@ -43,6 +43,10 @@ androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = 
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
 
+# QR Code Scanning & Generation
+play-services-code-scanner = { group = "com.google.android.gms", name = "play-services-code-scanner", version = "16.1.0" }
+zxing-core = { group = "com.google.zxing", name = "core", version = "3.5.3" }
+
 # Koin Dependency Injection
 koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = "koin" }
 koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compose", version.ref = "koin" }

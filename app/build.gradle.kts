@@ -74,6 +74,10 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
 
+    // QR Code Scanner & Generation
+    implementation(libs.play.services.code.scanner)
+    implementation(libs.zxing.core)
+
     // Koin Dependency Injection
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)

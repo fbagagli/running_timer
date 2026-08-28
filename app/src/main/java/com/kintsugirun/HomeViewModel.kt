@@ -26,4 +26,10 @@ class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
             repository.deleteWorkout(id)
         }
     }
+
+    fun saveWorkout(workout: Workout) {
+        viewModelScope.launch {
+            repository.saveWorkout(workout)
+        }
+    }
 }

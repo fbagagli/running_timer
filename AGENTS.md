@@ -36,9 +36,15 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 
 ### 4. Data Models & Storage (`AppDatabase.kt`, `WorkoutDao.kt`, `WorkoutRepository.kt`)
 - Workouts are stored in a local **Room SQLite Database** (`kintsugi_run.db`).
-- `Workout` is both a Room `@Entity(tableName = "workouts")` and `@Serializable` for JSON import/export.
+- `Workout` is a clean Room `@Entity(tableName = "workouts")` with auto-generated `Long` IDs.
 - `WorkoutDao.getAllWorkouts()` emits reactive `Flow<List<Workout>>`.
 - The flat workout structure (`Workout` containing warmup, run, walk, repeats, cooldown) is expanded linearly via `Workout.flatten()`.
+
+### 5. Workout Sharing & Import (`WorkoutQrHelper.kt`, `docs/index.html`)
+- Workout transfer uses Deep Link QR URIs (`kintsugirun://workout?name=...&w=...&r=...&k=...&n=...&c=...`).
+- Scanning is handled seamlessly via **Google Code Scanner** (no camera permission needed).
+- Workout sharing renders a QR code bitmap via ZXing.
+- Static companion web tool is located in `docs/index.html` (hosted on GitHub Pages).
 
 ### 5. Dependency Injection & Navigation Wiring
 - Dependency injection is configured in `AppModule.kt` and initialized in `KintsugiApp.kt`.
