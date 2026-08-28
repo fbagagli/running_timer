@@ -3,39 +3,34 @@ package com.kintsugirun
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
 
-    private val _workouts = MutableStateFlow<List<Pair<String, Workout>>>(emptyList())
-    val workouts: StateFlow<List<Pair<String, Workout>>> = _workouts.asStateFlow()
+    val workouts: StateFlow<List<Workout>> = repository.allWorkouts.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     init {
-        loadWorkouts()
-    }
-
-    fun loadWorkouts() {
         viewModelScope.launch {
-            _workouts.value = repository.getAllWorkouts()
+            repository.seedDefaultWorkoutsIfEmpty()
         }
     }
 
-    fun deleteWorkout(fileName: String) {
+    fun deleteWorkout(id: Long) {
         viewModelScope.launch {
-            if (repository.deleteWorkout(fileName)) {
-                loadWorkouts()
-            }
+            repository.deleteWorkout(id)
         }
     }
 
     fun importWorkout(uri: Uri) {
         viewModelScope.launch {
-            if (repository.importWorkoutFromUri(uri)) {
-                loadWorkouts()
-            }
+            repository.importWorkoutFromUri(uri)
         }
     }
 }

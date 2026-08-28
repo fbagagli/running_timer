@@ -14,9 +14,9 @@ class WorkoutReviewViewModel(
     private val _workout = MutableStateFlow<Workout?>(null)
     val workout: StateFlow<Workout?> = _workout.asStateFlow()
 
-    fun loadWorkout(fileName: String) {
+    fun loadWorkout(id: Long) {
         viewModelScope.launch {
-            _workout.value = repository.getWorkoutByFileName(fileName)
+            _workout.value = repository.getWorkoutById(id)
         }
     }
 }

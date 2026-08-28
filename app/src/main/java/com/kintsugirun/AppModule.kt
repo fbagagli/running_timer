@@ -1,5 +1,6 @@
 package com.kintsugirun
 
+import androidx.room.Room
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.androidx.viewmodel.dsl.viewModel
@@ -8,10 +9,20 @@ import org.koin.dsl.module
 val appModule = module {
     single<TimeProvider> { SystemTimeProvider() }
     single { TimerManager(get()) }
-    single { WorkoutRepository(androidContext()) }
+
+    // Room Database
+    single {
+        Room.databaseBuilder(
+            androidContext(),
+            AppDatabase::class.java,
+            "kintsugi_run.db"
+        ).build()
+    }
+    single { get<AppDatabase>().workoutDao() }
+    single { WorkoutRepository(get(), androidContext()) }
 
     viewModel { HomeViewModel(get()) }
     viewModel { WorkoutReviewViewModel(get()) }
-    viewModel { (fileName: String?) -> WorkoutEditorViewModel(get(), fileName) }
+    viewModel { (workoutId: Long?) -> WorkoutEditorViewModel(get(), workoutId) }
     viewModel { ActiveWorkoutViewModel(get(), get(), androidApplication()) }
 }

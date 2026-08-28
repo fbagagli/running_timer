@@ -21,9 +21,9 @@ class ActiveWorkoutViewModel(
 
     val timerState: StateFlow<TimerState> = timerManager.timerState
 
-    fun loadWorkout(fileName: String) {
+    fun loadWorkout(id: Long) {
         viewModelScope.launch {
-            _workout.value = repository.getWorkoutByFileName(fileName)
+            _workout.value = repository.getWorkoutById(id)
         }
     }
 

@@ -50,7 +50,7 @@ class AppModuleTest : KoinTest {
         val reviewViewModel: WorkoutReviewViewModel = get()
         assertThat(reviewViewModel).isNotNull()
 
-        val editorViewModel: WorkoutEditorViewModel = get { parametersOf("workout.json") }
+        val editorViewModel: WorkoutEditorViewModel = get { parametersOf(1L) }
         assertThat(editorViewModel).isNotNull()
 
         val activeViewModel: ActiveWorkoutViewModel = get()

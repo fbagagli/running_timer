@@ -7,6 +7,7 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - **Language**: Kotlin 2.0+ (JVM 17 target)
 - **Framework**: Android SDK 34 (minSdk 24)
 - **Build**: Gradle Version Catalog (`gradle/libs.versions.toml`), Kotlin Compose Plugin
+- **Database**: Android Room 2.6+ with KSP code generation
 - **DI**: Koin (`koin-android`, `koin-androidx-compose`)
 - **UI**: Jetpack Compose with Material 3
 - **Navigation**: `androidx.navigation.compose` 2.8+ (Type-safe routes with Kotlinx Serialization)
@@ -33,9 +34,10 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - Voice feedback uses `VoicePromptManager` interface implemented by `TtsManager` (Android `TextToSpeech`).
 - Handles queued messages if called before `OnInitListener` completes.
 
-### 4. Data Models & Storage (`WorkoutRepository.kt`)
-- Workouts are stored as standalone `.json` files in `context.filesDir`.
-- Safe file naming sanitizes titles using `Regex("[^a-z0-9]")`.
+### 4. Data Models & Storage (`AppDatabase.kt`, `WorkoutDao.kt`, `WorkoutRepository.kt`)
+- Workouts are stored in a local **Room SQLite Database** (`kintsugi_run.db`).
+- `Workout` is both a Room `@Entity(tableName = "workouts")` and `@Serializable` for JSON import/export.
+- `WorkoutDao.getAllWorkouts()` emits reactive `Flow<List<Workout>>`.
 - The flat workout structure (`Workout` containing warmup, run, walk, repeats, cooldown) is expanded linearly via `Workout.flatten()`.
 
 ### 5. Dependency Injection & Navigation Wiring

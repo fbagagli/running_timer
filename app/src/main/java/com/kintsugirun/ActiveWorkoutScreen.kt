@@ -20,7 +20,7 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveWorkoutScreen(
-    fileName: String,
+    workoutId: Long,
     announceRepetitions: Boolean = false,
     viewModel: ActiveWorkoutViewModel,
     onNavigateBack: () -> Unit
@@ -31,8 +31,8 @@ fun ActiveWorkoutScreen(
     // Instead of local state, check if the timer is already playing or has elapsed time
     val hasStarted = timerState.isPlaying || timerState.totalElapsedSeconds > 0
 
-    LaunchedEffect(fileName) {
-        viewModel.loadWorkout(fileName)
+    LaunchedEffect(workoutId) {
+        viewModel.loadWorkout(workoutId)
     }
 
     // Auto-navigate back when finished

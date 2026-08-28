@@ -10,7 +10,7 @@ import kotlinx.coroutines.launch
 
 class WorkoutEditorViewModel(
     private val repository: WorkoutRepository,
-    private val fileName: String?
+    private val workoutId: Long?
 ) : ViewModel() {
 
     private val _workout = MutableStateFlow<Workout?>(null)
@@ -22,8 +22,8 @@ class WorkoutEditorViewModel(
 
     private fun loadWorkout() {
         viewModelScope.launch {
-            if (fileName != null) {
-                _workout.value = repository.getWorkoutByFileName(fileName)
+            if (workoutId != null && workoutId > 0) {
+                _workout.value = repository.getWorkoutById(workoutId)
             } else {
                 _workout.value = Workout(
                     workoutName = "New Workout",
@@ -61,8 +61,8 @@ class WorkoutEditorViewModel(
         _workout.update { it?.copy(cooldownSeconds = seconds) }
     }
 
-    suspend fun saveWorkout() {
-        val currentWorkout = _workout.value ?: return
-        repository.saveWorkout(currentWorkout, fileName)
+    suspend fun saveWorkout(): Long {
+        val currentWorkout = _workout.value ?: return 0L
+        return repository.saveWorkout(currentWorkout)
     }
 }

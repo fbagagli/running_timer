@@ -6,13 +6,13 @@ import kotlinx.serialization.Serializable
 object HomeRoute
 
 @Serializable
-data class WorkoutReviewRoute(val fileName: String)
+data class WorkoutReviewRoute(val workoutId: Long)
 
 @Serializable
-data class WorkoutEditorRoute(val fileName: String? = null)
+data class WorkoutEditorRoute(val workoutId: Long? = null)
 
 @Serializable
 data class ActiveWorkoutRoute(
-    val fileName: String,
+    val workoutId: Long,
     val announceRepetitions: Boolean = false
 )

@@ -17,17 +17,17 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutReviewScreen(
-    fileName: String,
+    workoutId: Long,
     viewModel: WorkoutReviewViewModel,
     onStartWorkout: (announceRepetitions: Boolean) -> Unit,
     onNavigateBack: () -> Unit,
-    onEditWorkout: () -> Unit
+    onEditWorkout: (workoutId: Long) -> Unit
 ) {
     val workout by viewModel.workout.collectAsState()
     var announceRepetitions by rememberSaveable { mutableStateOf(false) }
 
-    LaunchedEffect(fileName) {
-        viewModel.loadWorkout(fileName)
+    LaunchedEffect(workoutId) {
+        viewModel.loadWorkout(workoutId)
     }
 
     Scaffold(
@@ -43,7 +43,7 @@ fun WorkoutReviewScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onEditWorkout) {
+                    IconButton(onClick = { onEditWorkout(workoutId) }) {
                         Icon(
                             imageVector = Icons.Filled.Edit,
                             contentDescription = "Edit Workout"

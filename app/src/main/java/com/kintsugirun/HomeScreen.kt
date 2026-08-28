@@ -16,19 +16,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel,
-    onNavigateToWorkout: (String) -> Unit,
+    onNavigateToWorkout: (Long) -> Unit,
     onCreateWorkout: () -> Unit
 ) {
     val workouts by viewModel.workouts.collectAsState()
-
-    LaunchedEffect(Unit) {
-        viewModel.loadWorkouts()
-    }
+    var workoutToDelete by remember { mutableStateOf<Workout?>(null) }
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -63,7 +61,7 @@ fun HomeScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No workouts found. Tap + to import.",
+                    text = "No workouts found. Tap 'Create Workout' or import a JSON file.",
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
@@ -75,26 +73,51 @@ fun HomeScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(workouts) { (fileName, workout) ->
+                items(workouts, key = { it.id }) { workout ->
                     WorkoutRow(
-                        fileName = fileName,
                         workout = workout,
-                        onClick = { onNavigateToWorkout(fileName) },
-                        onDelete = { viewModel.deleteWorkout(fileName) }
+                        onClick = { onNavigateToWorkout(workout.id) },
+                        onDelete = { workoutToDelete = workout }
                     )
                 }
             }
+        }
+
+        workoutToDelete?.let { workout ->
+            AlertDialog(
+                onDismissRequest = { workoutToDelete = null },
+                title = { Text("Delete Workout") },
+                text = { Text("Are you sure you want to delete \"${workout.workoutName}\"?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            viewModel.deleteWorkout(workout.id)
+                            workoutToDelete = null
+                        }
+                    ) {
+                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { workoutToDelete = null }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }
 
 @Composable
 fun WorkoutRow(
-    fileName: String,
     workout: Workout,
     onClick: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val totalSeconds = workout.warmupSeconds +
+            workout.repeats * (workout.runSeconds + workout.walkSeconds) +
+            workout.cooldownSeconds
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -113,8 +136,9 @@ fun WorkoutRow(
                     text = workout.workoutName,
                     style = MaterialTheme.typography.titleMedium
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = fileName,
+                    text = "${workout.repeats} reps • Run ${formatTime(workout.runSeconds)} / Walk ${formatTime(workout.walkSeconds)} • ${formatTime(totalSeconds)} total",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -128,4 +152,10 @@ fun WorkoutRow(
             }
         }
     }
+}
+
+private fun formatTime(seconds: Int): String {
+    val mins = seconds / 60
+    val secs = seconds % 60
+    return String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
 }

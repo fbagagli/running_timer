@@ -4,74 +4,29 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import java.io.File
-import java.io.FileOutputStream
 
-class WorkoutRepository(private val context: Context) {
-
-    companion object {
-        private val safeFileNameRegex = Regex("[^a-z0-9]")
-    }
-
+class WorkoutRepository(
+    private val workoutDao: WorkoutDao,
+    private val context: Context
+) {
     private val tag = "WorkoutRepository"
-    // Using ignoreUnknownKeys = true is generally a good practice for robustness
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun getAllWorkouts(): List<Pair<String, Workout>> = withContext(Dispatchers.IO) {
-        val workouts = mutableListOf<Pair<String, Workout>>()
-        val filesDir = context.filesDir
-        val jsonFiles = filesDir.listFiles { _, name -> name.endsWith(".json") } ?: emptyArray()
+    val allWorkouts: Flow<List<Workout>> = workoutDao.getAllWorkouts()
 
-        for (file in jsonFiles) {
-            try {
-                val text = file.readText()
-                val workout = json.decodeFromString<Workout>(text)
-                workouts.add(Pair(file.name, workout))
-            } catch (e: Exception) {
-                Log.e(tag, "Error parsing file: ${file.name}", e)
-            }
-        }
-        workouts
+    suspend fun getWorkoutById(id: Long): Workout? = withContext(Dispatchers.IO) {
+        workoutDao.getWorkoutById(id)
     }
 
-    suspend fun getWorkoutByFileName(fileName: String): Workout? = withContext(Dispatchers.IO) {
-        try {
-            val file = File(context.filesDir, fileName)
-            if (file.exists()) {
-                val text = file.readText()
-                json.decodeFromString<Workout>(text)
-            } else {
-                Log.w(tag, "Workout file not found: $fileName")
-                null
-            }
-        } catch (e: Exception) {
-            Log.e(tag, "Error parsing file: $fileName", e)
-            null
-        }
+    suspend fun saveWorkout(workout: Workout): Long = withContext(Dispatchers.IO) {
+        workoutDao.insertOrUpdate(workout)
     }
 
-    suspend fun deleteWorkout(fileName: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val file = File(context.filesDir, fileName)
-            if (file.exists()) {
-                val deleted = file.delete()
-                if (deleted) {
-                    Log.d(tag, "Successfully deleted $fileName")
-                } else {
-                    Log.w(tag, "Failed to delete $fileName")
-                }
-                deleted
-            } else {
-                Log.w(tag, "File not found: $fileName")
-                false
-            }
-        } catch (e: Exception) {
-            Log.e(tag, "Error deleting file: $fileName", e)
-            false
-        }
+    suspend fun deleteWorkout(id: Long) = withContext(Dispatchers.IO) {
+        workoutDao.deleteById(id)
     }
 
     suspend fun importWorkoutFromUri(uri: Uri): Boolean = withContext(Dispatchers.IO) {
@@ -86,19 +41,10 @@ class WorkoutRepository(private val context: Context) {
                 return@withContext false
             }
 
-            // Attempt to deserialize to validate the format
             val workout = json.decodeFromString<Workout>(text)
-
-            // Generate a safe file name based on workout name
-            val safeFileName = workout.workoutName
-                .lowercase()
-                .replace(safeFileNameRegex, "_") + ".json"
-
-            // Save the JSON string as a new file, overwriting if it exists
-            val outFile = File(context.filesDir, safeFileName)
-            outFile.writeText(text)
-
-            Log.d(tag, "Successfully imported workout to $safeFileName")
+            // Ensure ID is 0 so Room generates a new unique ID
+            val insertedId = workoutDao.insertOrUpdate(workout.copy(id = 0))
+            Log.d(tag, "Successfully imported workout with id: $insertedId")
             true
         } catch (e: Exception) {
             Log.e(tag, "Error importing workout from URI: $uri", e)
@@ -106,18 +52,29 @@ class WorkoutRepository(private val context: Context) {
         }
     }
 
-    suspend fun saveWorkout(workout: Workout, originalFileName: String? = null) = withContext(Dispatchers.IO) {
-        try {
-            val fileName = originalFileName ?: (workout.workoutName
-                .lowercase()
-                .replace(safeFileNameRegex, "_") + ".json")
-
-            val outFile = File(context.filesDir, fileName)
-            val jsonString = json.encodeToString(workout)
-            outFile.writeText(jsonString)
-            Log.d(tag, "Successfully saved workout to $fileName")
-        } catch (e: Exception) {
-            Log.e(tag, "Error saving workout", e)
+    suspend fun seedDefaultWorkoutsIfEmpty() = withContext(Dispatchers.IO) {
+        if (workoutDao.getWorkoutCount() == 0) {
+            workoutDao.insertOrUpdate(
+                Workout(
+                    workoutName = "Couch to 5K — Week 1",
+                    warmupSeconds = 300,
+                    runSeconds = 60,
+                    walkSeconds = 90,
+                    repeats = 8,
+                    cooldownSeconds = 300
+                )
+            )
+            workoutDao.insertOrUpdate(
+                Workout(
+                    workoutName = "Easy Intervals",
+                    warmupSeconds = 300,
+                    runSeconds = 120,
+                    walkSeconds = 60,
+                    repeats = 5,
+                    cooldownSeconds = 300
+                )
+            )
+            Log.d(tag, "Seeded default starter workouts")
         }
     }
 }

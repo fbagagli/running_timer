@@ -17,8 +17,8 @@ fun KintsugiRunApp() {
             val homeViewModel: HomeViewModel = koinViewModel()
             HomeScreen(
                 viewModel = homeViewModel,
-                onNavigateToWorkout = { fileName ->
-                    navController.navigate(WorkoutReviewRoute(fileName = fileName))
+                onNavigateToWorkout = { workoutId ->
+                    navController.navigate(WorkoutReviewRoute(workoutId = workoutId))
                 },
                 onCreateWorkout = {
                     navController.navigate(WorkoutEditorRoute())
@@ -31,12 +31,12 @@ fun KintsugiRunApp() {
             val workoutReviewViewModel: WorkoutReviewViewModel = koinViewModel()
 
             WorkoutReviewScreen(
-                fileName = route.fileName,
+                workoutId = route.workoutId,
                 viewModel = workoutReviewViewModel,
                 onStartWorkout = { announceRepetitions ->
                     navController.navigate(
                         ActiveWorkoutRoute(
-                            fileName = route.fileName,
+                            workoutId = route.workoutId,
                             announceRepetitions = announceRepetitions
                         )
                     ) {
@@ -46,15 +46,15 @@ fun KintsugiRunApp() {
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onEditWorkout = {
-                    navController.navigate(WorkoutEditorRoute(fileName = route.fileName))
+                onEditWorkout = { workoutId ->
+                    navController.navigate(WorkoutEditorRoute(workoutId = workoutId))
                 }
             )
         }
 
         composable<WorkoutEditorRoute> { backStackEntry ->
             val route: WorkoutEditorRoute = backStackEntry.toRoute()
-            val workoutEditorViewModel: WorkoutEditorViewModel = koinViewModel { parametersOf(route.fileName) }
+            val workoutEditorViewModel: WorkoutEditorViewModel = koinViewModel { parametersOf(route.workoutId) }
 
             WorkoutEditorScreen(
                 viewModel = workoutEditorViewModel,
@@ -67,7 +67,7 @@ fun KintsugiRunApp() {
             val activeWorkoutViewModel: ActiveWorkoutViewModel = koinViewModel()
 
             ActiveWorkoutScreen(
-                fileName = route.fileName,
+                workoutId = route.workoutId,
                 announceRepetitions = route.announceRepetitions,
                 viewModel = activeWorkoutViewModel,
                 onNavigateBack = {

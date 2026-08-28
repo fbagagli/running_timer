@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -68,6 +69,11 @@ dependencies {
     // Kotlin Serialization
     implementation(libs.kotlinx.serialization.json)
 
+    // Room Database
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
     // Koin Dependency Injection
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
@@ -80,6 +86,7 @@ dependencies {
     testImplementation(libs.truth)
     testImplementation(libs.koin.test)
     testImplementation(libs.koin.test.junit4)
+    testImplementation(libs.androidx.room.testing)
 
     // Instrumentation Testing
     androidTestImplementation(libs.androidx.junit)

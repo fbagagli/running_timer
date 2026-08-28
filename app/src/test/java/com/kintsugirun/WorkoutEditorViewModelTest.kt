@@ -145,7 +145,33 @@ class WorkoutEditorViewModelTest {
         viewModel.saveWorkout()
 
         coVerify {
-            repository.saveWorkout(match { it.workoutName == "Target Save" }, null)
+            repository.saveWorkout(match { it.workoutName == "Target Save" })
+        }
+    }
+
+    @Test
+    fun `when initialized with workoutId, loads existing workout`() = runTest {
+        val existingWorkout = Workout(
+            id = 42L,
+            workoutName = "Loaded Workout",
+            warmupSeconds = 100,
+            runSeconds = 50,
+            walkSeconds = 50,
+            repeats = 3,
+            cooldownSeconds = 100
+        )
+        io.mockk.coEvery { repository.getWorkoutById(42L) } returns existingWorkout
+
+        val viewModel = WorkoutEditorViewModel(repository, 42L)
+
+        viewModel.workout.test {
+            val workout = awaitItem()
+            testScheduler.advanceUntilIdle()
+            val actualWorkout = workout ?: awaitItem()
+
+            assertThat(actualWorkout?.id).isEqualTo(42L)
+            assertThat(actualWorkout?.workoutName).isEqualTo("Loaded Workout")
+            cancelAndIgnoreRemainingEvents()
         }
     }
 }
