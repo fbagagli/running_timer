@@ -61,7 +61,21 @@ class TimerManagerTest {
         assertThat(state.isFinished).isFalse()
         assertThat(state.repetitionInfo).isNull()
 
-        assertThat(voicePromptManager.spokenMessages).containsExactly("Warm up")
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start warm up")
+    }
+
+    @Test
+    fun `start with announceRepetitions true produces numbered interval speech prompts`() {
+        timerManager.start(sampleWorkout, announceRepetitions = true)
+
+        // Advance through warmup (60s)
+        timeProvider.advanceTimeBy(60_000L)
+        timerManager.tick()
+
+        assertThat(voicePromptManager.spokenMessages).containsExactly(
+            "Start warm up",
+            "Start running, 1 of 2"
+        ).inOrder()
     }
 
     @Test
@@ -93,8 +107,8 @@ class TimerManagerTest {
         assertThat(state.repetitionInfo).isEqualTo("1 of 2")
 
         assertThat(voicePromptManager.spokenMessages).containsExactly(
-            "Warm up",
-            "Run"
+            "Start warm up",
+            "Start running"
         ).inOrder()
     }
 
@@ -111,7 +125,7 @@ class TimerManagerTest {
         assertThat(state.isPlaying).isFalse()
         assertThat(state.remainingSecondsInPhase).isEqualTo(0)
 
-        assertThat(voicePromptManager.spokenMessages.last()).isEqualTo("Workout complete. Great job!")
+        assertThat(voicePromptManager.spokenMessages.last()).isEqualTo("Workout complete")
     }
 
     @Test
@@ -155,7 +169,7 @@ class TimerManagerTest {
         assertThat(state.totalElapsedSeconds).isEqualTo(60)
         assertThat(state.repetitionInfo).isEqualTo("1 of 2")
 
-        assertThat(voicePromptManager.spokenMessages).containsExactly("Warm up", "Run").inOrder()
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start warm up", "Start running").inOrder()
     }
 
     @Test

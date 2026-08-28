@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -18,11 +19,12 @@ import java.util.Locale
 fun WorkoutReviewScreen(
     fileName: String,
     viewModel: WorkoutReviewViewModel,
-    onStartWorkout: () -> Unit,
+    onStartWorkout: (announceRepetitions: Boolean) -> Unit,
     onNavigateBack: () -> Unit,
     onEditWorkout: () -> Unit
 ) {
     val workout by viewModel.workout.collectAsState()
+    var announceRepetitions by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(fileName) {
         viewModel.loadWorkout(fileName)
@@ -98,8 +100,28 @@ fun WorkoutReviewScreen(
                     }
                 }
 
+                if (currentWorkout.repeats > 1) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = announceRepetitions,
+                            onCheckedChange = { announceRepetitions = it }
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Announce repetition numbers (e.g. \"2 of ${currentWorkout.repeats}\")",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
                 Button(
-                    onClick = onStartWorkout,
+                    onClick = { onStartWorkout(announceRepetitions) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(60.dp)

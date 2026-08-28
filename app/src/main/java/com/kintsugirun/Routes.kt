@@ -12,4 +12,7 @@ data class WorkoutReviewRoute(val fileName: String)
 data class WorkoutEditorRoute(val fileName: String? = null)
 
 @Serializable
-data class ActiveWorkoutRoute(val fileName: String)
+data class ActiveWorkoutRoute(
+    val fileName: String,
+    val announceRepetitions: Boolean = false
+)

@@ -40,8 +40,8 @@ class TimerManager(
         this.voicePromptManager = ttsManager
     }
 
-    fun start(workout: Workout) {
-        currentWorkoutSteps = workout.flatten()
+    fun start(workout: Workout, announceRepetitions: Boolean = false) {
+        currentWorkoutSteps = workout.flatten(announceRepetitions)
         currentStepIndex = 0
         totalElapsedMsAtPhaseStart = 0
 
@@ -168,7 +168,7 @@ class TimerManager(
                     isPlaying = false,
                     isFinished = true
                 )
-                voicePromptManager?.speak("Workout complete. Great job!")
+                voicePromptManager?.speak("Workout complete")
                 timerJob?.cancel()
                 return
             }

@@ -27,7 +27,7 @@ class ActiveWorkoutViewModel(
         }
     }
 
-    fun startTimer() {
+    fun startTimer(announceRepetitions: Boolean = false) {
         val currentWorkout = _workout.value ?: return
 
         // Start Foreground Service
@@ -36,7 +36,7 @@ class ActiveWorkoutViewModel(
         }
         ContextCompat.startForegroundService(getApplication(), serviceIntent)
 
-        timerManager.start(currentWorkout)
+        timerManager.start(currentWorkout, announceRepetitions)
     }
 
     fun pauseTimer() {

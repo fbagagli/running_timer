@@ -21,6 +21,7 @@ import java.util.Locale
 @Composable
 fun ActiveWorkoutScreen(
     fileName: String,
+    announceRepetitions: Boolean = false,
     viewModel: ActiveWorkoutViewModel,
     onNavigateBack: () -> Unit
 ) {
@@ -68,7 +69,7 @@ fun ActiveWorkoutScreen(
                     Spacer(modifier = Modifier.height(32.dp))
                     Button(
                         onClick = {
-                            viewModel.startTimer()
+                            viewModel.startTimer(announceRepetitions)
                         },
                         modifier = Modifier.size(120.dp, 60.dp)
                     ) {

@@ -33,8 +33,13 @@ fun KintsugiRunApp() {
             WorkoutReviewScreen(
                 fileName = route.fileName,
                 viewModel = workoutReviewViewModel,
-                onStartWorkout = {
-                    navController.navigate(ActiveWorkoutRoute(fileName = route.fileName)) {
+                onStartWorkout = { announceRepetitions ->
+                    navController.navigate(
+                        ActiveWorkoutRoute(
+                            fileName = route.fileName,
+                            announceRepetitions = announceRepetitions
+                        )
+                    ) {
                         popUpTo<WorkoutReviewRoute> { inclusive = true }
                     }
                 },
@@ -63,6 +68,7 @@ fun KintsugiRunApp() {
 
             ActiveWorkoutScreen(
                 fileName = route.fileName,
+                announceRepetitions = route.announceRepetitions,
                 viewModel = activeWorkoutViewModel,
                 onNavigateBack = {
                     navController.popBackStack<HomeRoute>(inclusive = false)
