@@ -10,7 +10,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
@@ -23,6 +25,15 @@ class MainActivity : ComponentActivity() {
 
         ttsManager = TtsManager(this)
         timerManager.setVoicePromptManager(ttsManager)
+
+        lifecycleScope.launch {
+            timerManager.timerState.collect { state ->
+                LockScreenHelper.setLockScreenVisibility(
+                    activity = this@MainActivity,
+                    show = state.isPlaying || state.totalElapsedSeconds > 0
+                )
+            }
+        }
 
         checkNavigationIntent(intent)
 
@@ -61,6 +72,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        LockScreenHelper.setLockScreenVisibility(this, false)
         timerManager.setVoicePromptManager(null)
         ttsManager.shutdown()
     }
