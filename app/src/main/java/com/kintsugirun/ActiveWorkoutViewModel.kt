@@ -32,7 +32,9 @@ class ActiveWorkoutViewModel(
 
         // Start Foreground Service
         val serviceIntent = Intent(getApplication(), TimerService::class.java).apply {
-            putExtra("WORKOUT_NAME", currentWorkout.workoutName)
+            putExtra(TimerNotificationHelper.EXTRA_WORKOUT_NAME, currentWorkout.workoutName)
+            putExtra(TimerNotificationHelper.EXTRA_WORKOUT_ID, currentWorkout.id)
+            putExtra(TimerNotificationHelper.EXTRA_ANNOUNCE_REPETITIONS, announceRepetitions)
         }
         ContextCompat.startForegroundService(getApplication(), serviceIntent)
 
