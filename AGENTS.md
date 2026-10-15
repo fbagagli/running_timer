@@ -26,12 +26,14 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - `TimerManager` is an injectable class provided as a singleton in `AppModule.kt`.
 - Timer state is exposed via `StateFlow<TimerState>`.
 
-### 2. Background Execution & Interactive Notification (`TimerService.kt`, `TimerNotificationHelper.kt`)
+### 2. Background Execution & Interactive Notification (`TimerService.kt`, `TimerNotificationHelper.kt`, `LockScreenHelper.kt`)
 - Android 14 (API 34) requires `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` for foreground timer execution.
 - Maintain the `WAKE_LOCK` acquire/release lifecycle tied to `TimerState.isPlaying`.
-- Interactive notifications are constructed via `TimerNotificationHelper` with `setOnlyAlertOnce(true)` to avoid alert noise on periodic second ticks.
+- Interactive notifications are constructed via `TimerNotificationHelper` with `setOnlyAlertOnce(true)` to avoid alert noise on periodic second ticks, and `setVisibility(NotificationCompat.VISIBILITY_PUBLIC)` to display workout progress directly on the lock screen.
 - Intent actions (`ACTION_PAUSE`, `ACTION_RESUME`, `ACTION_NEXT`, `ACTION_STOP`) are decoupled and dispatched via `TimerServiceActionHandler`.
 - Tapping the notification deep-links to `ActiveWorkoutRoute` via `NavigationIntentHelper` in `MainActivity`.
+- `MainActivity` coordinates with `LockScreenHelper` to dynamically enable `showWhenLocked` and `turnScreenOn` (via API 27+ methods or legacy window flags) when a workout is active or paused (`isPlaying || totalElapsedSeconds > 0`), ensuring users can view and control their workout over the lock screen.
+- `ActiveWorkoutScreen` utilizes Compose `DisposableEffect` with `WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON` to prevent the display from turning off while viewing the active workout session.
 
 ### 3. Audio & Voice Cues (`TtsManager.kt`, `VoicePromptManager.kt`)
 - Voice feedback uses `VoicePromptManager` interface implemented by `TtsManager` (Android `TextToSpeech`).
