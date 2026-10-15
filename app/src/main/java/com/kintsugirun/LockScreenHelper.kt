@@ -1,11 +1,13 @@
 package com.kintsugirun
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.os.Build
 import android.view.WindowManager
 
 object LockScreenHelper {
 
+    @SuppressLint("NewApi")
     @Suppress("DEPRECATION")
     fun setLockScreenVisibility(
         activity: Activity,
