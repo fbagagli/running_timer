@@ -1,6 +1,7 @@
 package com.kintsugirun
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -9,8 +10,20 @@ import org.koin.androidx.compose.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 @Composable
-fun KintsugiRunApp() {
+fun KintsugiRunApp(
+    pendingActiveRoute: ActiveWorkoutRoute? = null,
+    onRouteConsumed: () -> Unit = {}
+) {
     val navController = rememberNavController()
+
+    LaunchedEffect(pendingActiveRoute) {
+        pendingActiveRoute?.let { route ->
+            navController.navigate(route) {
+                popUpTo<HomeRoute> { inclusive = false }
+            }
+            onRouteConsumed()
+        }
+    }
 
     NavHost(navController = navController, startDestination = HomeRoute) {
         composable<HomeRoute> {

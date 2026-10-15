@@ -1,17 +1,22 @@
 package com.kintsugirun
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
     private val timerManager: TimerManager by inject()
     private lateinit var ttsManager: TtsManager
+    private val pendingRoute = MutableStateFlow<ActiveWorkoutRoute?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -19,15 +24,38 @@ class MainActivity : ComponentActivity() {
         ttsManager = TtsManager(this)
         timerManager.setVoicePromptManager(ttsManager)
 
+        checkNavigationIntent(intent)
+
         setContent {
+            val routeToNavigate by pendingRoute.collectAsState()
+
             MaterialTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    KintsugiRunApp()
+                    KintsugiRunApp(
+                        pendingActiveRoute = routeToNavigate,
+                        onRouteConsumed = { pendingRoute.value = null }
+                    )
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        checkNavigationIntent(intent)
+    }
+
+    private fun checkNavigationIntent(intent: Intent?) {
+        val targetRoute = NavigationIntentHelper.extractActiveWorkoutRoute(
+            intent = intent,
+            timerState = timerManager.timerState.value
+        )
+        if (targetRoute != null) {
+            pendingRoute.value = targetRoute
         }
     }
 
@@ -37,3 +65,4 @@ class MainActivity : ComponentActivity() {
         ttsManager.shutdown()
     }
 }
+

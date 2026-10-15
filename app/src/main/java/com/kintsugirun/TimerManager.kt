@@ -12,7 +12,9 @@ data class TimerState(
     val totalElapsedSeconds: Int = 0,
     val isPlaying: Boolean = false,
     val isFinished: Boolean = false,
-    val repetitionInfo: String? = null
+    val repetitionInfo: String? = null,
+    val workoutId: Long = 0L,
+    val announceRepetitions: Boolean = false
 )
 
 class TimerManager(
@@ -57,7 +59,9 @@ class TimerManager(
             totalElapsedSeconds = 0,
             isPlaying = true,
             isFinished = false,
-            repetitionInfo = firstStep.repetitionInfo
+            repetitionInfo = firstStep.repetitionInfo,
+            workoutId = workout.id,
+            announceRepetitions = announceRepetitions
         )
 
         voicePromptManager?.speak(firstStep.message)
