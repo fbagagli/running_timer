@@ -26,9 +26,12 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - `TimerManager` is an injectable class provided as a singleton in `AppModule.kt`.
 - Timer state is exposed via `StateFlow<TimerState>`.
 
-### 2. Background Execution (`TimerService.kt`)
+### 2. Background Execution & Interactive Notification (`TimerService.kt`, `TimerNotificationHelper.kt`)
 - Android 14 (API 34) requires `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` for foreground timer execution.
 - Maintain the `WAKE_LOCK` acquire/release lifecycle tied to `TimerState.isPlaying`.
+- Interactive notifications are constructed via `TimerNotificationHelper` with `setOnlyAlertOnce(true)` to avoid alert noise on periodic second ticks.
+- Intent actions (`ACTION_PAUSE`, `ACTION_RESUME`, `ACTION_NEXT`, `ACTION_STOP`) are decoupled and dispatched via `TimerServiceActionHandler`.
+- Tapping the notification deep-links to `ActiveWorkoutRoute` via `NavigationIntentHelper` in `MainActivity`.
 
 ### 3. Audio & Voice Cues (`TtsManager.kt`, `VoicePromptManager.kt`)
 - Voice feedback uses `VoicePromptManager` interface implemented by `TtsManager` (Android `TextToSpeech`).
