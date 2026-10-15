@@ -1,5 +1,6 @@
 package com.kintsugirun
 
+import androidx.core.app.NotificationCompat
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
@@ -112,5 +113,11 @@ class TimerNotificationHelperTest {
         actions.forEach { action ->
             assertThat(action).startsWith("com.kintsugirun.action.")
         }
+    }
+
+    @Test
+    fun `notification visibility is configured as public for lock screen`() {
+        assertThat(TimerNotificationHelper.NOTIFICATION_VISIBILITY)
+            .isEqualTo(NotificationCompat.VISIBILITY_PUBLIC)
     }
 }

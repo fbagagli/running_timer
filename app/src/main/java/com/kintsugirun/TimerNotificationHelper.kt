@@ -11,6 +11,7 @@ object TimerNotificationHelper {
 
     const val CHANNEL_ID = "TimerServiceChannel"
     const val NOTIFICATION_ID = 1
+    const val NOTIFICATION_VISIBILITY = NotificationCompat.VISIBILITY_PUBLIC
 
     const val ACTION_PAUSE = "com.kintsugirun.action.PAUSE"
     const val ACTION_RESUME = "com.kintsugirun.action.RESUME"
@@ -100,6 +101,7 @@ object TimerNotificationHelper {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(state.isPlaying)
             .setOnlyAlertOnce(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(contentPendingIntent)
 
         if (state.isPlaying) {
