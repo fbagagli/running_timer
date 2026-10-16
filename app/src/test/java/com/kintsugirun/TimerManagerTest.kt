@@ -1,6 +1,9 @@
 package com.kintsugirun
 
 import com.google.common.truth.Truth.assertThat
+import io.mockk.coVerify
+import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -28,6 +31,7 @@ class TimerManagerTest {
 
     private lateinit var timeProvider: TestTimeProvider
     private lateinit var voicePromptManager: FakeVoicePromptManager
+    private lateinit var repository: WorkoutRepository
     private val testDispatcher = StandardTestDispatcher()
     private val testScope = TestScope(testDispatcher)
     private lateinit var timerManager: TimerManager
@@ -45,7 +49,8 @@ class TimerManagerTest {
     fun setup() {
         timeProvider = TestTimeProvider(currentTimeMs = 10_000L)
         voicePromptManager = FakeVoicePromptManager()
-        timerManager = TimerManager(timeProvider, testScope)
+        repository = mockk(relaxed = true)
+        timerManager = TimerManager(timeProvider, testScope, repository)
         timerManager.setVoicePromptManager(voicePromptManager)
     }
 
@@ -204,5 +209,105 @@ class TimerManagerTest {
         assertThat(state.isPlaying).isFalse()
         assertThat(state.isFinished).isFalse()
         assertThat(state.repetitionInfo).isNull()
+    }
+
+    @Test
+    fun `natural completion saves completed workout session`() {
+        val workout = sampleWorkout.copy(id = 42L)
+        timerManager.start(workout)
+
+        // Advance through whole workout: 60 + 2 * (30 + 30) + 60 = 240 seconds
+        timeProvider.advanceTimeBy(240_000L)
+        timerManager.tick()
+        testScope.testScheduler.advanceUntilIdle()
+
+        val sessionSlot = slot<WorkoutSession>()
+        coVerify(exactly = 1) { repository.saveSession(capture(sessionSlot)) }
+
+        val savedSession = sessionSlot.captured
+        assertThat(savedSession.workoutId).isEqualTo(42L)
+        assertThat(savedSession.totalElapsedSeconds).isEqualTo(240)
+        assertThat(savedSession.isCompleted).isTrue()
+        assertThat(savedSession.interruptedPhase).isNull()
+        assertThat(savedSession.workoutSnapshot).isEqualTo(workout)
+        assertThat(savedSession.startedAtTimestamp).isGreaterThan(0L)
+    }
+
+    @Test
+    fun `early stop with 30 or more elapsed seconds saves incomplete workout session with interrupted phase`() {
+        val workout = sampleWorkout.copy(id = 42L)
+        timerManager.start(workout)
+
+        // Advance 35 seconds during warmup
+        timeProvider.advanceTimeBy(35_000L)
+        timerManager.tick()
+
+        timerManager.stop()
+        testScope.testScheduler.advanceUntilIdle()
+
+        val sessionSlot = slot<WorkoutSession>()
+        coVerify(exactly = 1) { repository.saveSession(capture(sessionSlot)) }
+
+        val savedSession = sessionSlot.captured
+        assertThat(savedSession.workoutId).isEqualTo(42L)
+        assertThat(savedSession.totalElapsedSeconds).isEqualTo(35)
+        assertThat(savedSession.isCompleted).isFalse()
+        assertThat(savedSession.interruptedPhase).isEqualTo("Warmup")
+        assertThat(savedSession.workoutSnapshot).isEqualTo(workout)
+        assertThat(savedSession.startedAtTimestamp).isGreaterThan(0L)
+    }
+
+    @Test
+    fun `early stop during interval includes repetition info in interrupted phase`() {
+        val workout = sampleWorkout.copy(id = 42L)
+        timerManager.start(workout)
+
+        // Advance 60s (Warmup) + 15s (Run 1 of 2) = 75 seconds
+        timeProvider.advanceTimeBy(75_000L)
+        timerManager.tick()
+
+        timerManager.stop()
+        testScope.testScheduler.advanceUntilIdle()
+
+        val sessionSlot = slot<WorkoutSession>()
+        coVerify(exactly = 1) { repository.saveSession(capture(sessionSlot)) }
+
+        val savedSession = sessionSlot.captured
+        assertThat(savedSession.isCompleted).isFalse()
+        assertThat(savedSession.interruptedPhase).isEqualTo("Run (1 of 2)")
+        assertThat(savedSession.totalElapsedSeconds).isEqualTo(75)
+    }
+
+    @Test
+    fun `early stop with less than 30 elapsed seconds does not save workout session`() {
+        val workout = sampleWorkout.copy(id = 42L)
+        timerManager.start(workout)
+
+        // Advance only 20 seconds
+        timeProvider.advanceTimeBy(20_000L)
+        timerManager.tick()
+
+        timerManager.stop()
+        testScope.testScheduler.advanceUntilIdle()
+
+        coVerify(exactly = 0) { repository.saveSession(any()) }
+    }
+
+    @Test
+    fun `stop called after natural completion does not duplicate session save`() {
+        val workout = sampleWorkout.copy(id = 42L)
+        timerManager.start(workout)
+
+        // Complete whole workout (240s)
+        timeProvider.advanceTimeBy(240_000L)
+        timerManager.tick()
+        testScope.testScheduler.advanceUntilIdle()
+
+        // Stop called afterwards
+        timerManager.stop()
+        testScope.testScheduler.advanceUntilIdle()
+
+        // saveSession should only have been called once (from natural completion)
+        coVerify(exactly = 1) { repository.saveSession(any()) }
     }
 }

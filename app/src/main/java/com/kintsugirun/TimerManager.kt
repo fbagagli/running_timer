@@ -19,7 +19,8 @@ data class TimerState(
 
 class TimerManager(
     private val timeProvider: TimeProvider = SystemTimeProvider(),
-    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
+    private val repository: WorkoutRepository? = null
 ) {
 
     private val _timerState = MutableStateFlow(TimerState())
@@ -33,6 +34,10 @@ class TimerManager(
     private var targetEndTimeMs: Long = 0
     private var totalElapsedMsAtPhaseStart: Long = 0
     private var pauseTimeMs: Long = 0
+
+    internal var currentWorkout: Workout? = null
+    internal var workoutStartTimeMs: Long = 0L
+    internal var sessionSaved: Boolean = false
 
     fun setVoicePromptManager(voicePromptManager: VoicePromptManager?) {
         this.voicePromptManager = voicePromptManager
@@ -48,6 +53,10 @@ class TimerManager(
         totalElapsedMsAtPhaseStart = 0
 
         if (currentWorkoutSteps.isEmpty()) return
+
+        currentWorkout = workout
+        workoutStartTimeMs = System.currentTimeMillis()
+        sessionSaved = false
 
         val firstStep = currentWorkoutSteps[currentStepIndex]
 
@@ -89,11 +98,42 @@ class TimerManager(
 
     fun stop() {
         timerJob?.cancel()
+
+        val workout = currentWorkout
+        val state = _timerState.value
+        if (!sessionSaved && workout != null && state.totalElapsedSeconds >= 30) {
+            sessionSaved = true
+            val phase = if (state.repetitionInfo != null) {
+                "${state.currentPhaseName} (${state.repetitionInfo})"
+            } else {
+                state.currentPhaseName
+            }
+            val startTime = if (workoutStartTimeMs != 0L) {
+                workoutStartTimeMs
+            } else {
+                System.currentTimeMillis() - (state.totalElapsedSeconds * 1000L)
+            }
+            val session = WorkoutSession(
+                workoutId = workout.id,
+                startedAtTimestamp = startTime,
+                totalElapsedSeconds = state.totalElapsedSeconds,
+                isCompleted = false,
+                interruptedPhase = phase,
+                workoutSnapshot = workout
+            )
+            scope.launch {
+                repository?.saveSession(session)
+            }
+        }
+
         _timerState.value = TimerState() // Reset to default
         currentWorkoutSteps = emptyList()
         currentStepIndex = 0
         targetEndTimeMs = 0
         totalElapsedMsAtPhaseStart = 0
+        sessionSaved = false
+        currentWorkout = null
+        workoutStartTimeMs = 0L
     }
 
     fun nextStep() {
@@ -166,14 +206,36 @@ class TimerManager(
                 voicePromptManager?.speak(nextStep.message)
             } else {
                 // Workout finished
+                val finalElapsedSeconds = (totalElapsedMsAtPhaseStart / 1000).toInt()
                 _timerState.value = _timerState.value.copy(
                     remainingSecondsInPhase = 0,
-                    totalElapsedSeconds = (totalElapsedMsAtPhaseStart / 1000).toInt(),
+                    totalElapsedSeconds = finalElapsedSeconds,
                     isPlaying = false,
                     isFinished = true
                 )
                 voicePromptManager?.speak("Workout complete")
                 timerJob?.cancel()
+
+                val workout = currentWorkout
+                if (!sessionSaved && workout != null) {
+                    sessionSaved = true
+                    val startTime = if (workoutStartTimeMs != 0L) {
+                        workoutStartTimeMs
+                    } else {
+                        System.currentTimeMillis() - (finalElapsedSeconds * 1000L)
+                    }
+                    val session = WorkoutSession(
+                        workoutId = workout.id,
+                        startedAtTimestamp = startTime,
+                        totalElapsedSeconds = finalElapsedSeconds,
+                        isCompleted = true,
+                        interruptedPhase = null,
+                        workoutSnapshot = workout
+                    )
+                    scope.launch {
+                        repository?.saveSession(session)
+                    }
+                }
                 return
             }
         }

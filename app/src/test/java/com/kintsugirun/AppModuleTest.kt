@@ -61,5 +61,8 @@ class AppModuleTest : KoinTest {
 
         val activeViewModel: ActiveWorkoutViewModel = get()
         assertThat(activeViewModel).isNotNull()
+
+        val timerManager: TimerManager = get()
+        assertThat(timerManager).isNotNull()
     }
 }

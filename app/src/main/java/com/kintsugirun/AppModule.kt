@@ -8,7 +8,7 @@ import org.koin.dsl.module
 
 val appModule = module {
     single<TimeProvider> { SystemTimeProvider() }
-    single { TimerManager(get()) }
+    single { TimerManager(timeProvider = get(), repository = get()) }
 
     // Room Database
     single {
