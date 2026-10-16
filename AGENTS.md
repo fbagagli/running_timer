@@ -54,9 +54,10 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - Workout sharing renders a QR code bitmap via ZXing.
 - Static companion web tool is located in `docs/index.html` (hosted on GitHub Pages).
 
-### 6. Universal Backup & Restore (`BackupHelper.kt`, `HomeScreen.kt`)
+### 6. Universal Backup & Restore (`BackupHelper.kt`, `AutoBackupManager.kt`, `HomeScreen.kt`)
 - Full database backup to a single JSON file (`KintsugiBackup`) containing workouts and execution sessions with snapshots.
 - Export and import via Android Storage Access Framework (SAF) file picker contracts (`CreateDocument` and `OpenDocument`) accessible from `HomeScreen` TopBar menu.
+- Continuous auto-backup via `AutoBackupManager`: users can select an external persistent folder (`OpenDocumentTree`). The app holds persistable URI permissions and automatically overwrites `kintsugirun_auto_backup.json` in the background on every workout mutation or session save.
 
 ### 7. Dependency Injection & Navigation Wiring
 - Dependency injection is configured in `AppModule.kt` and initialized in `KintsugiApp.kt`.
