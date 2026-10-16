@@ -1,9 +1,12 @@
 package com.kintsugirun
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -25,8 +28,10 @@ class TimerService : Service() {
     private var workoutName: String = "Workout"
     private var workoutId: Long = 0L
     private var announceRepetitions: Boolean = false
+    private var lastPhaseName: String = ""
 
     private val timerManager: TimerManager by inject()
+    private val gpsTracker: GpsTracker by inject()
 
     private val actionHandler by lazy {
         TimerServiceActionHandler(
@@ -42,16 +47,26 @@ class TimerService : Service() {
         super.onCreate()
         createNotificationChannel()
 
+        startGpsTrackingIfPermitted()
+
         // Observe the timer state to auto-stop the service, manage wake lock, and update notification
         timerManager.timerState.onEach { state ->
             if (state.isFinished) {
+                gpsTracker.stopTracking()
                 ServiceCompat.stopForeground(this@TimerService, ServiceCompat.STOP_FOREGROUND_REMOVE)
                 stopSelf()
             } else {
                 if (!state.isPlaying) {
                     releaseWakeLock()
+                    gpsTracker.pauseTracking()
                 } else {
                     acquireWakeLock()
+                    gpsTracker.resumeTracking()
+                }
+
+                if (state.currentPhaseName.isNotBlank() && state.currentPhaseName != lastPhaseName) {
+                    lastPhaseName = state.currentPhaseName
+                    gpsTracker.updatePhase(state.currentPhaseName)
                 }
 
                 if (isForegroundStarted) {
@@ -85,6 +100,8 @@ class TimerService : Service() {
             announceRepetitions
         ) ?: announceRepetitions
 
+        startGpsTrackingIfPermitted()
+
         acquireWakeLock()
 
         val notification = TimerNotificationHelper.buildNotification(
@@ -97,10 +114,15 @@ class TimerService : Service() {
 
         if (!isForegroundStarted) {
             if (Build.VERSION.SDK_INT >= 34) {
+                val serviceType = if (hasLocationPermission()) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                } else {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                }
                 startForeground(
                     TimerNotificationHelper.NOTIFICATION_ID,
                     notification,
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    serviceType
                 )
             } else {
                 startForeground(TimerNotificationHelper.NOTIFICATION_ID, notification)
@@ -117,7 +139,18 @@ class TimerService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         releaseWakeLock()
+        gpsTracker.stopTracking()
         scope.cancel()
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun startGpsTrackingIfPermitted() {
+        if (hasLocationPermission() && !gpsTracker.isTracking()) {
+            gpsTracker.startTracking(workoutName)
+        }
     }
 
     private fun acquireWakeLock() {

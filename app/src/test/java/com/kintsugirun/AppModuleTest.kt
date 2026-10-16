@@ -68,5 +68,8 @@ class AppModuleTest : KoinTest {
 
         val timerManager: TimerManager = get()
         assertThat(timerManager).isNotNull()
+
+        val gpsTracker: GpsTracker = get()
+        assertThat(gpsTracker).isNotNull()
     }
 }

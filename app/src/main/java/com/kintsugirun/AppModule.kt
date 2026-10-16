@@ -9,6 +9,7 @@ import org.koin.dsl.module
 val appModule = module {
     single<TimeProvider> { SystemTimeProvider() }
     single { TimerManager(timeProvider = get(), repository = get()) }
+    single { GpsTracker(androidContext()) }
 
     // Auto-Backup
     single { AutoBackupManager(androidContext()) }
