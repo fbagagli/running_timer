@@ -30,6 +30,8 @@ class TimerManager(
     private var currentWorkoutSteps: List<WorkoutStep> = emptyList()
     private var currentStepIndex = 0
     private var timerJob: Job? = null
+    private var halfwayAnnounced = false
+    private var oneMinuteAnnounced = false
 
     private var targetEndTimeMs: Long = 0
     private var totalElapsedMsAtPhaseStart: Long = 0
@@ -51,6 +53,8 @@ class TimerManager(
         currentWorkoutSteps = workout.flatten(announceRepetitions)
         currentStepIndex = 0
         totalElapsedMsAtPhaseStart = 0
+        halfwayAnnounced = false
+        oneMinuteAnnounced = false
 
         if (currentWorkoutSteps.isEmpty()) return
 
@@ -134,6 +138,8 @@ class TimerManager(
         sessionSaved = false
         currentWorkout = null
         workoutStartTimeMs = 0L
+        halfwayAnnounced = false
+        oneMinuteAnnounced = false
     }
 
     fun nextStep() {
@@ -156,6 +162,8 @@ class TimerManager(
         }
 
         currentStepIndex = index
+        halfwayAnnounced = false
+        oneMinuteAnnounced = false
         val nextStep = currentWorkoutSteps[currentStepIndex]
         targetEndTimeMs = timeProvider.elapsedRealtime() + (nextStep.durationSeconds * 1000L)
 
@@ -192,6 +200,8 @@ class TimerManager(
             totalElapsedMsAtPhaseStart += finishedStep.durationSeconds * 1000L
 
             currentStepIndex++
+            halfwayAnnounced = false
+            oneMinuteAnnounced = false
 
             if (currentStepIndex < currentWorkoutSteps.size) {
                 val nextStep = currentWorkoutSteps[currentStepIndex]
@@ -255,6 +265,18 @@ class TimerManager(
                     remainingSecondsInPhase = remainingSeconds,
                     totalElapsedSeconds = totalElapsedSeconds
                 )
+            }
+
+            val currentStep = currentWorkoutSteps[currentStepIndex]
+            if (currentStep.phaseName.equals("Run", ignoreCase = true)) {
+                if (currentStep.durationSeconds > 120 && !halfwayAnnounced && remainingSeconds <= currentStep.durationSeconds / 2) {
+                    halfwayAnnounced = true
+                    voicePromptManager?.speak("Halfway")
+                }
+                if (currentStep.durationSeconds >= 180 && !oneMinuteAnnounced && remainingSeconds <= 60) {
+                    oneMinuteAnnounced = true
+                    voicePromptManager?.speak("One minute left")
+                }
             }
         }
     }

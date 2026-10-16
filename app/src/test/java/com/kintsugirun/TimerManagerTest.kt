@@ -310,4 +310,179 @@ class TimerManagerTest {
         // saveSession should only have been called once (from natural completion)
         coVerify(exactly = 1) { repository.saveSession(any()) }
     }
+
+    @Test
+    fun `run interval of 4 minutes announces Halfway at 120s remaining and One minute left at 60s remaining once`() {
+        val longRunWorkout = Workout(
+            workoutName = "Long Run",
+            warmupSeconds = 0,
+            runSeconds = 240,
+            walkSeconds = 0,
+            repeats = 1,
+            cooldownSeconds = 0
+        )
+        timerManager.start(longRunWorkout)
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running")
+
+        // Advance 100 seconds (140s remaining) -> no intermediate cue yet
+        timeProvider.advanceTimeBy(100_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running")
+
+        // Advance to 120 seconds elapsed (120s remaining, halfway)
+        timeProvider.advanceTimeBy(20_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running", "Halfway").inOrder()
+
+        // Advance a few more seconds to test that "Halfway" is not spoken again on subsequent ticks
+        timeProvider.advanceTimeBy(10_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running", "Halfway").inOrder()
+
+        // Advance to 180 seconds elapsed (60s remaining, one minute left)
+        timeProvider.advanceTimeBy(50_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running", "Halfway", "One minute left").inOrder()
+
+        // Advance a few more seconds to test that "One minute left" is not spoken again
+        timeProvider.advanceTimeBy(10_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running", "Halfway", "One minute left").inOrder()
+    }
+
+    @Test
+    fun `run interval of 2 and half minutes announces Halfway at 75s remaining but not One minute left`() {
+        val mediumRunWorkout = Workout(
+            workoutName = "Medium Run",
+            warmupSeconds = 0,
+            runSeconds = 150,
+            walkSeconds = 0,
+            repeats = 1,
+            cooldownSeconds = 0
+        )
+        timerManager.start(mediumRunWorkout)
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running")
+
+        // Advance to 75 seconds elapsed (75s remaining, halfway of 150s)
+        timeProvider.advanceTimeBy(75_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running", "Halfway").inOrder()
+
+        // Advance to 90 seconds elapsed (60s remaining). Since duration < 180s, "One minute left" should NOT trigger
+        timeProvider.advanceTimeBy(15_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running", "Halfway").inOrder()
+
+        // Advance to end of phase
+        timeProvider.advanceTimeBy(60_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages).doesNotContain("One minute left")
+    }
+
+    @Test
+    fun `run interval of 2 minutes or less does not announce Halfway or One minute left`() {
+        val shortRunWorkout = Workout(
+            workoutName = "Short Run",
+            warmupSeconds = 0,
+            runSeconds = 120,
+            walkSeconds = 0,
+            repeats = 1,
+            cooldownSeconds = 0
+        )
+        timerManager.start(shortRunWorkout)
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running")
+
+        // Advance through the entire run interval tick by tick or in chunks
+        timeProvider.advanceTimeBy(60_000L)
+        timerManager.tick()
+        timeProvider.advanceTimeBy(30_000L)
+        timerManager.tick()
+        timeProvider.advanceTimeBy(30_000L)
+        timerManager.tick()
+
+        assertThat(voicePromptManager.spokenMessages).doesNotContain("Halfway")
+        assertThat(voicePromptManager.spokenMessages).doesNotContain("One minute left")
+    }
+
+    @Test
+    fun `phases other than Run do not announce Halfway or One minute left`() {
+        val workout = Workout(
+            workoutName = "Walk and Warmup Long",
+            warmupSeconds = 300,
+            runSeconds = 0,
+            walkSeconds = 300,
+            repeats = 1,
+            cooldownSeconds = 300
+        )
+        timerManager.start(workout)
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start warm up")
+
+        // Advance warmup through halfway (150s) and 60s remaining (240s)
+        timeProvider.advanceTimeBy(150_000L)
+        timerManager.tick()
+        timeProvider.advanceTimeBy(90_000L)
+        timerManager.tick()
+
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start warm up")
+
+        // Transition to walk
+        timeProvider.advanceTimeBy(60_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start warm up", "Start walking").inOrder()
+
+        // Advance walk through halfway (150s) and 60s remaining (240s)
+        timeProvider.advanceTimeBy(150_000L)
+        timerManager.tick()
+        timeProvider.advanceTimeBy(90_000L)
+        timerManager.tick()
+
+        assertThat(voicePromptManager.spokenMessages).doesNotContain("Halfway")
+        assertThat(voicePromptManager.spokenMessages).doesNotContain("One minute left")
+    }
+
+    @Test
+    fun `halfway and one minute left cues reset properly across multiple run repetitions`() {
+        val repeatWorkout = Workout(
+            workoutName = "Repeats",
+            warmupSeconds = 0,
+            runSeconds = 240,
+            walkSeconds = 30,
+            repeats = 2,
+            cooldownSeconds = 0
+        )
+        timerManager.start(repeatWorkout)
+        assertThat(voicePromptManager.spokenMessages).containsExactly("Start running")
+
+        // Rep 1: advance to 120s remaining
+        timeProvider.advanceTimeBy(120_000L)
+        timerManager.tick()
+        // Rep 1: advance to 60s remaining
+        timeProvider.advanceTimeBy(60_000L)
+        timerManager.tick()
+        // Rep 1: finish run (advance 60s) -> transition to Walk
+        timeProvider.advanceTimeBy(60_000L)
+        timerManager.tick()
+
+        assertThat(voicePromptManager.spokenMessages).containsExactly(
+            "Start running",
+            "Halfway",
+            "One minute left",
+            "Start walking"
+        ).inOrder()
+
+        // Walk finishes (30s) -> transition to Run (Rep 2)
+        timeProvider.advanceTimeBy(30_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages.last()).isEqualTo("Start running")
+
+        // Rep 2: advance to 120s remaining
+        timeProvider.advanceTimeBy(120_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages.takeLast(2)).containsExactly("Start running", "Halfway").inOrder()
+
+        // Rep 2: advance to 60s remaining
+        timeProvider.advanceTimeBy(60_000L)
+        timerManager.tick()
+        assertThat(voicePromptManager.spokenMessages.takeLast(3)).containsExactly("Start running", "Halfway", "One minute left").inOrder()
+    }
 }
