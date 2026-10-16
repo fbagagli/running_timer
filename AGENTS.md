@@ -40,18 +40,18 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - Handles queued messages if called before `OnInitListener` completes.
 - When `announceRepetitions` is enabled, both Run and Walk phase announcements include the repetition count (*"Start running, X of Y"*, *"Start walking, X of Y"*).
 - During active "Run" phases, `TimerManager` triggers intermediate voice prompts:
-  - *"Halfway"* at midpoint for intervals with duration $> 120$ seconds.
+  - *"Halfway, pace M:SS"* (or *"Halfway"* if GPS unavailable) at midpoint for intervals with duration $> 120$ seconds.
   - *"One minute left"* at 60 seconds remaining for intervals with duration $\ge 180$ seconds.
   - Intervals $\le 120$ seconds remain clean and free of intermediate announcements.
 
 ### 4. Data Models & Storage (`AppDatabase.kt`, `WorkoutDao.kt`, `WorkoutSessionDao.kt`, `WorkoutRepository.kt`)
-- Workouts and completed sessions are stored in a local **Room SQLite Database** (`kintsugi_run.db`, version 2).
+- Workouts and completed sessions are stored in a local **Room SQLite Database** (`kintsugi_run.db`, version 3).
 - `Workout` is a clean Room `@Entity(tableName = "workouts")` with auto-generated `Long` IDs.
-- `WorkoutSession` is a Room `@Entity(tableName = "workout_sessions")` capturing completed and interrupted sessions with an immutable `@Embedded(prefix = "workout_")` snapshot of the executed `Workout`.
+- `WorkoutSession` is a Room `@Entity(tableName = "workout_sessions")` capturing completed and interrupted sessions with an immutable `@Embedded(prefix = "workout_")` snapshot of the executed `Workout`, plus GPS telemetry (`totalDistanceMeters`, `runDistanceMeters`, `walkDistanceMeters`, `runPaceSecondsPerKm`, `walkPaceSecondsPerKm`, and `gpsRouteJson`).
 - `WorkoutDao.getAllWorkouts()` and `WorkoutSessionDao.getLatestSessionForWorkout()` emit reactive Flows.
 - The flat workout structure (`Workout` containing warmup, run, walk, repeats, cooldown) is expanded linearly via `Workout.flatten()`.
 - Session persistence is centralized in `TimerManager.kt` on natural completion or early stop (`totalElapsedSeconds >= 30`).
-- Latest session for a workout is displayed in `WorkoutReviewScreen.kt`.
+- Latest session for a workout is displayed in `WorkoutReviewScreen.kt` with separate Run and Walk stats, an OpenStreetMap route preview, and GPX export.
 
 ### 5. Workout Sharing & Import (`WorkoutQrHelper.kt`, `docs/index.html`)
 - Workout transfer uses Deep Link QR URIs (`kintsugirun://workout?name=...&w=...&r=...&k=...&n=...&c=...`).
@@ -68,6 +68,12 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - Dependency injection is configured in `AppModule.kt` and initialized in `KintsugiApp.kt`.
 - Navigation uses type-safe Kotlin Serializable routes defined in `Routes.kt` (`HomeRoute`, `WorkoutReviewRoute`, `WorkoutEditorRoute`, `ActiveWorkoutRoute`).
 - ViewModels are injected into composables using `koinViewModel()`.
+
+### 8. GPS Location Tracking & Map Visualization (`GpsTracker.kt`, `OpenStreetMapRouteView.kt`, `GpxExportHelper`)
+- GPS coordinates are sampled during workouts via Android native `LocationManager` and filtered for accuracy.
+- Accumulated telemetry tracks total distance, current interval pace, as well as distinct Run and Walk distances and average paces.
+- Post-workout routes are visualized via an embedded Leaflet/OpenStreetMap component (`OpenStreetMapRouteView`) with phase-colored polylines (red for Run, green for Walk).
+- Tracks can be exported to standard GPX 1.1 files (`GpxExportHelper`).
 
 ## Code Style & Testing Expectations
 - Always write/update unit tests in `app/src/test/` for new ViewModel or business logic changes.
