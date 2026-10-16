@@ -134,4 +134,33 @@ class WorkoutReviewViewModelTest {
         testScheduler.advanceUntilIdle()
         assertThat(viewModel.latestSession.value).isEqualTo(session2)
     }
+
+    @Test
+    fun `loadWorkout correctly propagates session with gps metrics and route`() = runTest {
+        val sessionWithGps = sampleSession.copy(
+            totalDistanceMeters = 3200.0,
+            runDistanceMeters = 2000.0,
+            walkDistanceMeters = 1200.0,
+            runPaceSecondsPerKm = 300,
+            walkPaceSecondsPerKm = 600,
+            gpsRouteJson = """[{"latitude":45.4642,"longitude":9.19,"altitude":120.0,"timestamp":1700000000000,"phaseName":"Run"}]"""
+        )
+
+        coEvery { repository.getWorkoutById(1L) } returns sampleWorkout
+        every { repository.getLatestSessionForWorkout(1L) } returns flowOf(sessionWithGps)
+
+        val viewModel = WorkoutReviewViewModel(repository)
+        viewModel.loadWorkout(1L)
+        testScheduler.advanceUntilIdle()
+
+        val latest = viewModel.latestSession.value
+        assertThat(latest).isNotNull()
+        assertThat(latest?.totalDistanceMeters).isEqualTo(3200.0)
+        assertThat(latest?.runDistanceMeters).isEqualTo(2000.0)
+        assertThat(latest?.walkDistanceMeters).isEqualTo(1200.0)
+        assertThat(latest?.runPaceSecondsPerKm).isEqualTo(300)
+        assertThat(latest?.walkPaceSecondsPerKm).isEqualTo(600)
+        assertThat(latest?.gpsRouteJson).contains("45.4642")
+    }
 }
+

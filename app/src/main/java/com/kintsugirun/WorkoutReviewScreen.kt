@@ -1,15 +1,20 @@
 package com.kintsugirun
 
+import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -17,8 +22,10 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -351,8 +358,117 @@ fun LatestSessionCard(session: WorkoutSession) {
                     )
                 }
             }
+
+            if (session.totalDistanceMeters > 0) {
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "📍 Distanza Totale",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = String.format(Locale.US, "%.2f km", session.totalDistanceMeters / 1000.0),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🏃 Corsa Media",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "${String.format(Locale.US, "%.2f km", session.runDistanceMeters / 1000.0)} • ${formatPace(session.runPaceSecondsPerKm)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🚶 Camminata Media",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "${String.format(Locale.US, "%.2f km", session.walkDistanceMeters / 1000.0)} • ${formatPace(session.walkPaceSecondsPerKm)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            val gpsPoints = remember(session.gpsRouteJson) {
+                if (!session.gpsRouteJson.isNullOrBlank()) {
+                    try {
+                        Json.decodeFromString<List<GpsPoint>>(session.gpsRouteJson)
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                } else {
+                    emptyList()
+                }
+            }
+
+            if (gpsPoints.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                OpenStreetMapRouteView(
+                    gpsPoints = gpsPoints,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(190.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                )
+
+                val context = LocalContext.current
+                OutlinedButton(
+                    onClick = {
+                        val gpx = GpxExportHelper.generateGpx(
+                            workoutName = session.workoutSnapshot.workoutName,
+                            points = gpsPoints
+                        )
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/gpx+xml"
+                            putExtra(Intent.EXTRA_SUBJECT, "${session.workoutSnapshot.workoutName}.gpx")
+                            putExtra(Intent.EXTRA_TEXT, gpx)
+                        }
+                        context.startActivity(Intent.createChooser(sendIntent, "Esporta GPX"))
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Share,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Esporta GPX")
+                }
+            }
         }
     }
+}
+
+internal fun formatPace(paceSecondsPerKm: Int): String {
+    if (paceSecondsPerKm <= 0) return "--'--\" /km"
+    val mins = paceSecondsPerKm / 60
+    val secs = paceSecondsPerKm % 60
+    return String.format(Locale.US, "%d'%02d\" /km", mins, secs)
 }
 
 private fun formatTime(seconds: Int): String {
@@ -365,3 +481,4 @@ private fun formatTime(seconds: Int): String {
         String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
     }
 }
+
