@@ -81,6 +81,50 @@
       font-size: 1.1rem;
     }
 
+    .header-actions {
+      margin-top: 1.25rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .download-apk-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      background: var(--card-bg);
+      color: var(--text-main);
+      border: 1px solid var(--card-border);
+      padding: 0.6rem 1.25rem;
+      border-radius: 9999px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      transition: all 0.2s ease;
+    }
+
+    .download-apk-btn svg {
+      stroke: var(--primary);
+      transition: transform 0.2s ease;
+    }
+
+    .download-apk-btn:hover {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(249, 115, 22, 0.25);
+    }
+
+    .download-apk-btn:hover svg {
+      transform: translateY(2px);
+    }
+
+    .download-apk-btn:active {
+      transform: translateY(0);
+    }
+
     .presets-bar {
       display: flex;
       gap: 0.5rem;
@@ -331,6 +375,16 @@
       <div class="logo-badge">⚡ KintsugiRun Companion</div>
       <h1>Workout Creator & QR Generator</h1>
       <p>Configure interval running workouts on PC and scan with your phone in seconds.</p>
+      <div class="header-actions">
+        <a href="kintsugirun.apk" download class="download-apk-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>Download Android App (.apk)</span>
+        </a>
+      </div>
     </header>
 
     <div class="presets-bar">
