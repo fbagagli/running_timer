@@ -84,7 +84,9 @@ fun KintsugiRunApp(
                 announceRepetitions = route.announceRepetitions,
                 viewModel = activeWorkoutViewModel,
                 onNavigateBack = {
-                    navController.popBackStack<HomeRoute>(inclusive = false)
+                    navController.navigate(WorkoutReviewRoute(workoutId = route.workoutId)) {
+                        popUpTo<HomeRoute> { inclusive = false }
+                    }
                 }
             )
         }
