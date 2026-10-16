@@ -146,6 +146,28 @@ class WorkoutRepositoryTest {
     }
 
     @Test
+    fun `getAllWorkoutsList retrieves first list of workouts from workoutDao`() = runTest {
+        val workouts = listOf(sampleWorkout)
+        every { workoutDao.getAllWorkouts() } returns flowOf(workouts)
+
+        val result = repository.getAllWorkoutsList()
+
+        assertThat(result).isEqualTo(workouts)
+        coVerify(atLeast = 1) { workoutDao.getAllWorkouts() }
+    }
+
+    @Test
+    fun `getAllSessionsList retrieves first list of sessions from workoutSessionDao`() = runTest {
+        val sessions = listOf(sampleSession)
+        every { workoutSessionDao.getAllSessions() } returns flowOf(sessions)
+
+        val result = repository.getAllSessionsList()
+
+        assertThat(result).isEqualTo(sessions)
+        coVerify(atLeast = 1) { workoutSessionDao.getAllSessions() }
+    }
+
+    @Test
     fun `deleteAllSessions delegates to workoutSessionDao deleteAllSessions`() = runTest {
         repository.deleteAllSessions()
 

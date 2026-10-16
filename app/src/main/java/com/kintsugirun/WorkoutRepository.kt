@@ -3,6 +3,7 @@ package com.kintsugirun
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 class WorkoutRepository(
@@ -38,6 +39,14 @@ class WorkoutRepository(
 
     fun getAllSessions(): Flow<List<WorkoutSession>> =
         workoutSessionDao.getAllSessions()
+
+    suspend fun getAllWorkoutsList(): List<Workout> = withContext(Dispatchers.IO) {
+        workoutDao.getAllWorkouts().first()
+    }
+
+    suspend fun getAllSessionsList(): List<WorkoutSession> = withContext(Dispatchers.IO) {
+        workoutSessionDao.getAllSessions().first()
+    }
 
     suspend fun deleteAllSessions() = withContext(Dispatchers.IO) {
         workoutSessionDao.deleteAllSessions()

@@ -1,5 +1,7 @@
 package com.kintsugirun
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -7,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,6 +21,8 @@ import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions
 import com.google.mlkit.vision.codescanner.GmsBarcodeScanning
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -29,9 +34,51 @@ fun HomeScreen(
 ) {
     val workouts by viewModel.workouts.collectAsState()
     var workoutToDelete by remember { mutableStateOf<Workout?>(null) }
+    var menuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                try {
+                    val json = viewModel.exportBackupJson()
+                    context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        outputStream.bufferedWriter().use { it.write(json) }
+                    }
+                    snackbarHostState.showSnackbar("Backup salvato con successo")
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar("Errore durante il salvataggio del backup")
+                }
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                try {
+                    val jsonString = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        inputStream.bufferedReader().use { it.readText() }
+                    } ?: ""
+                    val result = viewModel.importBackupJson(jsonString)
+                    if (result.isSuccess) {
+                        val importData = result.getOrThrow()
+                        snackbarHostState.showSnackbar("Ripristinati ${importData.workoutsCount} allenamenti e ${importData.sessionsCount} sessioni")
+                    } else {
+                        snackbarHostState.showSnackbar("Errore durante l'importazione del backup")
+                    }
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar("Errore durante l'importazione del backup")
+                }
+            }
+        }
+    }
 
     val scanner = remember(context) {
         val options = GmsBarcodeScannerOptions.Builder()
@@ -72,6 +119,32 @@ fun HomeScreen(
                             }
                     }) {
                         Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan QR Code")
+                    }
+
+                    Box {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(Icons.Filled.MoreVert, contentDescription = "More options")
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Esporta backup (JSON)") },
+                                onClick = {
+                                    menuExpanded = false
+                                    val fileName = "kintsugirun_backup_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.json"
+                                    exportLauncher.launch(fileName)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Importa backup (JSON)") },
+                                onClick = {
+                                    menuExpanded = false
+                                    importLauncher.launch(arrayOf("application/json", "*/*"))
+                                }
+                            )
+                        }
                     }
                 }
             )
