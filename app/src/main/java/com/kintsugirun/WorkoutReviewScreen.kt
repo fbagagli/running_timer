@@ -13,8 +13,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.ui.text.style.TextOverflow
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,6 +33,7 @@ fun WorkoutReviewScreen(
     onEditWorkout: (workoutId: Long) -> Unit
 ) {
     val workout by viewModel.workout.collectAsState()
+    val latestSession by viewModel.latestSession.collectAsState()
     var announceRepetitions by rememberSaveable { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
 
@@ -84,6 +91,10 @@ fun WorkoutReviewScreen(
                         text = "Total Duration: ${formatTime(totalDuration)}",
                         style = MaterialTheme.typography.titleLarge
                     )
+
+                    latestSession?.let { session ->
+                        LatestSessionCard(session = session)
+                    }
 
                     Spacer(modifier = Modifier.height(4.dp))
 
@@ -225,6 +236,120 @@ fun WorkoutPhaseCard(phaseName: String, durationSeconds: Int, details: String = 
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun LatestSessionCard(session: WorkoutSession) {
+    val formattedDate = remember(session.startedAtTimestamp) {
+        val sdf = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault())
+        sdf.format(Date(session.startedAtTimestamp))
+    }
+    val targetDuration = session.workoutSnapshot.let {
+        it.warmupSeconds + it.repeats * (it.runSeconds + it.walkSeconds) + it.cooldownSeconds
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Filled.History,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Ultima esecuzione",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+                Text(
+                    text = formattedDate,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val statusText = if (session.isCompleted) {
+                    "Completato"
+                } else if (!session.interruptedPhase.isNullOrBlank()) {
+                    "Interrotto • ${session.interruptedPhase}"
+                } else {
+                    "Interrotto"
+                }
+
+                Box(modifier = Modifier.weight(1f, fill = false)) {
+                    AssistChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                text = statusText,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = if (session.isCompleted) Icons.Filled.Check else Icons.Filled.Warning,
+                                contentDescription = null,
+                                modifier = Modifier.size(AssistChipDefaults.IconSize)
+                            )
+                        },
+                        colors = AssistChipDefaults.assistChipColors(
+                            containerColor = if (session.isCompleted) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.tertiaryContainer
+                            },
+                            labelColor = if (session.isCompleted) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            },
+                            leadingIconContentColor = if (session.isCompleted) {
+                                MaterialTheme.colorScheme.onPrimaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.onTertiaryContainer
+                            }
+                        ),
+                        border = null
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "Durata: ${formatTime(session.totalElapsedSeconds)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Prevista: ${formatTime(targetDuration)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }
