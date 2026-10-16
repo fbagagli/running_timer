@@ -5,10 +5,12 @@ import android.content.Intent
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.resetMain
@@ -82,5 +84,28 @@ class ActiveWorkoutViewModelTest {
             })
         }
         verify(exactly = 1) { mockApplication.stopService(any<Intent>()) }
+    }
+
+    @Test
+    fun `gpsMetrics exposes metrics from gpsTracker when provided`() {
+        val mockGpsTracker = mockk<GpsTracker>(relaxed = true)
+        val metricsFlow = MutableStateFlow(
+            GpsMetrics(
+                totalDistanceMeters = 1500.0,
+                currentIntervalPaceSecPerKm = 315
+            )
+        )
+        every { mockGpsTracker.metrics } returns metricsFlow
+
+        val viewModel = ActiveWorkoutViewModel(repository, timerManager, mockApplication, mockGpsTracker)
+        assertThat(viewModel.gpsMetrics.value.totalDistanceMeters).isEqualTo(1500.0)
+        assertThat(viewModel.gpsMetrics.value.currentIntervalPaceSecPerKm).isEqualTo(315)
+    }
+
+    @Test
+    fun `gpsMetrics defaults to empty metrics when gpsTracker is null`() {
+        val viewModel = ActiveWorkoutViewModel(repository, timerManager, mockApplication, null)
+        assertThat(viewModel.gpsMetrics.value.totalDistanceMeters).isEqualTo(0.0)
+        assertThat(viewModel.gpsMetrics.value.currentIntervalPaceSecPerKm).isEqualTo(0)
     }
 }

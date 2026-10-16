@@ -75,11 +75,28 @@ class TimerService : Service() {
                         workoutName = workoutName,
                         workoutId = workoutId,
                         announceRepetitions = announceRepetitions,
-                        state = state
+                        state = state,
+                        gpsMetrics = gpsTracker.metrics.value
                     )
                     val manager = getSystemService(NotificationManager::class.java)
                     manager.notify(TimerNotificationHelper.NOTIFICATION_ID, notification)
                 }
+            }
+        }.launchIn(scope)
+
+        // Observe gps metrics to update notification when distance changes
+        gpsTracker.metrics.onEach { metrics ->
+            if (isForegroundStarted && !timerManager.timerState.value.isFinished) {
+                val notification = TimerNotificationHelper.buildNotification(
+                    context = this@TimerService,
+                    workoutName = workoutName,
+                    workoutId = workoutId,
+                    announceRepetitions = announceRepetitions,
+                    state = timerManager.timerState.value,
+                    gpsMetrics = metrics
+                )
+                val manager = getSystemService(NotificationManager::class.java)
+                manager.notify(TimerNotificationHelper.NOTIFICATION_ID, notification)
             }
         }.launchIn(scope)
     }
@@ -109,7 +126,8 @@ class TimerService : Service() {
             workoutName = workoutName,
             workoutId = workoutId,
             announceRepetitions = announceRepetitions,
-            state = timerManager.timerState.value
+            state = timerManager.timerState.value,
+            gpsMetrics = gpsTracker.metrics.value
         )
 
         if (!isForegroundStarted) {

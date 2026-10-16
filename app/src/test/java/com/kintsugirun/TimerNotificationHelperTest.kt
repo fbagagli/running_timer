@@ -102,6 +102,35 @@ class TimerNotificationHelperTest {
     }
 
     @Test
+    fun `formatNotificationText includes formatted distance when gpsMetrics has total distance`() {
+        val runState = TimerState(
+            currentPhaseName = "Run",
+            remainingSecondsInPhase = 120,
+            totalElapsedSeconds = 300,
+            isPlaying = true,
+            repetitionInfo = "2 of 5"
+        )
+        val metrics = GpsMetrics(totalDistanceMeters = 2450.0)
+        val text = TimerNotificationHelper.formatNotificationText(runState, metrics)
+        assertThat(text).isEqualTo("Run (2 of 5) • 02:00 • 2.45 km")
+    }
+
+    @Test
+    fun `formatNotificationText omits distance when total distance is zero or metrics is null`() {
+        val runState = TimerState(
+            currentPhaseName = "Run",
+            remainingSecondsInPhase = 120,
+            totalElapsedSeconds = 300,
+            isPlaying = true
+        )
+        val metricsZero = GpsMetrics(totalDistanceMeters = 0.0)
+        assertThat(TimerNotificationHelper.formatNotificationText(runState, metricsZero))
+            .isEqualTo("Run • 02:00")
+        assertThat(TimerNotificationHelper.formatNotificationText(runState, null))
+            .isEqualTo("Run • 02:00")
+    }
+
+    @Test
     fun `action constants are unique and follow reverse-dns pattern`() {
         val actions = listOf(
             TimerNotificationHelper.ACTION_PAUSE,

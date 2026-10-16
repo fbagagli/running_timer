@@ -13,13 +13,16 @@ import kotlinx.coroutines.launch
 class ActiveWorkoutViewModel(
     private val repository: WorkoutRepository,
     private val timerManager: TimerManager,
-    application: Application
+    application: Application,
+    private val gpsTracker: GpsTracker? = null
 ) : AndroidViewModel(application) {
 
     private val _workout = MutableStateFlow<Workout?>(null)
     val workout: StateFlow<Workout?> = _workout.asStateFlow()
 
     val timerState: StateFlow<TimerState> = timerManager.timerState
+
+    val gpsMetrics: StateFlow<GpsMetrics> = gpsTracker?.metrics ?: MutableStateFlow(GpsMetrics()).asStateFlow()
 
     fun loadWorkout(id: Long) {
         viewModelScope.launch {

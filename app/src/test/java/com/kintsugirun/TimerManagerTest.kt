@@ -2,9 +2,11 @@ package com.kintsugirun
 
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import org.junit.Before
@@ -484,5 +486,90 @@ class TimerManagerTest {
         timeProvider.advanceTimeBy(60_000L)
         timerManager.tick()
         assertThat(voicePromptManager.spokenMessages.takeLast(3)).containsExactly("Start running", "Halfway", "One minute left").inOrder()
+    }
+
+    @Test
+    fun `run interval of 4 minutes announces Halfway with pace when GPS tracker provides valid pace`() {
+        val mockGpsTracker = mockk<GpsTracker>(relaxed = true)
+        val metricsFlow = MutableStateFlow(
+            GpsMetrics(currentIntervalPaceSecPerKm = 325) // 5:25 min/km
+        )
+        every { mockGpsTracker.metrics } returns metricsFlow
+
+        val managerWithGps = TimerManager(
+            timeProvider = timeProvider,
+            scope = testScope,
+            repository = repository,
+            gpsTracker = mockGpsTracker
+        )
+        val promptManager = FakeVoicePromptManager()
+        managerWithGps.setVoicePromptManager(promptManager)
+
+        val longRunWorkout = Workout(
+            workoutName = "Long Run",
+            warmupSeconds = 0,
+            runSeconds = 240,
+            walkSeconds = 0,
+            repeats = 1,
+            cooldownSeconds = 0
+        )
+        managerWithGps.start(longRunWorkout)
+        assertThat(promptManager.spokenMessages).containsExactly("Start running")
+
+        // Advance to 120 seconds elapsed (120s remaining, halfway)
+        timeProvider.advanceTimeBy(120_000L)
+        managerWithGps.tick()
+
+        assertThat(promptManager.spokenMessages).containsExactly(
+            "Start running",
+            "Halfway, pace 5:25"
+        ).inOrder()
+
+        // Advance to 180 seconds elapsed (60s remaining, one minute left)
+        timeProvider.advanceTimeBy(60_000L)
+        managerWithGps.tick()
+
+        assertThat(promptManager.spokenMessages).containsExactly(
+            "Start running",
+            "Halfway, pace 5:25",
+            "One minute left"
+        ).inOrder()
+    }
+
+    @Test
+    fun `run interval announces Halfway without pace when pace is zero or gps is unacquired`() {
+        val mockGpsTracker = mockk<GpsTracker>(relaxed = true)
+        val metricsFlow = MutableStateFlow(
+            GpsMetrics(currentIntervalPaceSecPerKm = 0)
+        )
+        every { mockGpsTracker.metrics } returns metricsFlow
+
+        val managerWithGps = TimerManager(
+            timeProvider = timeProvider,
+            scope = testScope,
+            repository = repository,
+            gpsTracker = mockGpsTracker
+        )
+        val promptManager = FakeVoicePromptManager()
+        managerWithGps.setVoicePromptManager(promptManager)
+
+        val longRunWorkout = Workout(
+            workoutName = "Long Run",
+            warmupSeconds = 0,
+            runSeconds = 240,
+            walkSeconds = 0,
+            repeats = 1,
+            cooldownSeconds = 0
+        )
+        managerWithGps.start(longRunWorkout)
+
+        // Advance to halfway
+        timeProvider.advanceTimeBy(120_000L)
+        managerWithGps.tick()
+
+        assertThat(promptManager.spokenMessages).containsExactly(
+            "Start running",
+            "Halfway"
+        ).inOrder()
     }
 }

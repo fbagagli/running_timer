@@ -8,8 +8,8 @@ import org.koin.dsl.module
 
 val appModule = module {
     single<TimeProvider> { SystemTimeProvider() }
-    single { TimerManager(timeProvider = get(), repository = get()) }
     single { GpsTracker(androidContext()) }
+    single { TimerManager(timeProvider = get(), repository = get(), gpsTracker = get()) }
 
     // Auto-Backup
     single { AutoBackupManager(androidContext()) }
@@ -32,5 +32,5 @@ val appModule = module {
     viewModel { HomeViewModel(get()) }
     viewModel { WorkoutReviewViewModel(get()) }
     viewModel { (workoutId: Long?) -> WorkoutEditorViewModel(get(), workoutId) }
-    viewModel { ActiveWorkoutViewModel(get(), get(), androidApplication()) }
+    viewModel { ActiveWorkoutViewModel(get(), get(), androidApplication(), get()) }
 }

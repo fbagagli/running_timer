@@ -1,5 +1,6 @@
 package com.kintsugirun
 
+import java.util.Locale
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +21,8 @@ data class TimerState(
 class TimerManager(
     private val timeProvider: TimeProvider = SystemTimeProvider(),
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob()),
-    private val repository: WorkoutRepository? = null
+    private val repository: WorkoutRepository? = null,
+    private val gpsTracker: GpsTracker? = null
 ) {
 
     private val _timerState = MutableStateFlow(TimerState())
@@ -271,7 +273,15 @@ class TimerManager(
             if (currentStep.phaseName.equals("Run", ignoreCase = true)) {
                 if (currentStep.durationSeconds > 120 && !halfwayAnnounced && remainingSeconds <= currentStep.durationSeconds / 2) {
                     halfwayAnnounced = true
-                    voicePromptManager?.speak("Halfway")
+                    val paceSec = gpsTracker?.metrics?.value?.currentIntervalPaceSecPerKm ?: 0
+                    if (paceSec in 60..1200) {
+                        val mins = paceSec / 60
+                        val secs = paceSec % 60
+                        val paceFormatted = String.format(Locale.US, "%d:%02d", mins, secs)
+                        voicePromptManager?.speak("Halfway, pace $paceFormatted")
+                    } else {
+                        voicePromptManager?.speak("Halfway")
+                    }
                 }
                 if (currentStep.durationSeconds >= 180 && !oneMinuteAnnounced && remainingSeconds <= 60) {
                     oneMinuteAnnounced = true

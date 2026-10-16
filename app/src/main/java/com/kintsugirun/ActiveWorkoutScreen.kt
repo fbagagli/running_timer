@@ -1,7 +1,10 @@
 package com.kintsugirun
 
+import android.Manifest
 import android.app.Activity
 import android.view.WindowManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
@@ -17,7 +20,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,6 +41,20 @@ fun ActiveWorkoutScreen(
 
     val workout by viewModel.workout.collectAsState()
     val timerState by viewModel.timerState.collectAsState()
+    val gpsMetrics by viewModel.gpsMetrics.collectAsState()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* permissions handled */ }
+
+    LaunchedEffect(Unit) {
+        permissionLauncher.launch(
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        )
+    }
 
     // Instead of local state, check if the timer is already playing or has elapsed time
     val hasStarted = timerState.isPlaying || timerState.totalElapsedSeconds > 0
@@ -81,6 +97,12 @@ fun ActiveWorkoutScreen(
                     Spacer(modifier = Modifier.height(32.dp))
                     Button(
                         onClick = {
+                            permissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
                             viewModel.startTimer(announceRepetitions)
                         },
                         modifier = Modifier.size(120.dp, 60.dp)
@@ -110,7 +132,49 @@ fun ActiveWorkoutScreen(
                         style = MaterialTheme.typography.displayLarge
                     )
 
-                    Spacer(modifier = Modifier.height(48.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            val distanceKm = gpsMetrics.totalDistanceMeters / 1000.0
+                            Text(
+                                text = "${String.format(Locale.US, "%.2f", distanceKm)} km",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = "Distance",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            val paceSec = gpsMetrics.currentIntervalPaceSecPerKm
+                            val paceText = if (paceSec > 0) {
+                                val mins = paceSec / 60
+                                val secs = paceSec % 60
+                                "${mins}'${String.format(Locale.US, "%02d", secs)}\" /km"
+                            } else {
+                                "--'--\" /km"
+                            }
+                            Text(
+                                text = paceText,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            Text(
+                                text = "Interval Pace",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(32.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),

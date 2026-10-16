@@ -44,7 +44,7 @@ object TimerNotificationHelper {
         }
     }
 
-    fun formatNotificationText(state: TimerState): String {
+    fun formatNotificationText(state: TimerState, gpsMetrics: GpsMetrics? = null): String {
         if (state.isFinished) {
             return "Workout complete"
         }
@@ -59,10 +59,17 @@ object TimerNotificationHelper {
                 "Timer"
         }
 
-        return if (!state.isPlaying && state.totalElapsedSeconds > 0) {
+        val baseText = if (!state.isPlaying && state.totalElapsedSeconds > 0) {
             "PAUSED • $phaseLabel • $timeStr"
         } else {
             "$phaseLabel • $timeStr"
+        }
+
+        return if (gpsMetrics != null && gpsMetrics.totalDistanceMeters > 0) {
+            val distanceStr = String.format(Locale.US, "%.2f km", gpsMetrics.totalDistanceMeters / 1000.0)
+            "$baseText • $distanceStr"
+        } else {
+            baseText
         }
     }
 
@@ -85,7 +92,8 @@ object TimerNotificationHelper {
         workoutName: String,
         workoutId: Long,
         announceRepetitions: Boolean,
-        state: TimerState
+        state: TimerState,
+        gpsMetrics: GpsMetrics? = null
     ): Notification {
         val contentIntent = createAppIntent(context, workoutId, announceRepetitions)
         val contentPendingIntent = PendingIntent.getActivity(
@@ -97,7 +105,7 @@ object TimerNotificationHelper {
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(formatNotificationTitle(workoutName, state))
-            .setContentText(formatNotificationText(state))
+            .setContentText(formatNotificationText(state, gpsMetrics))
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setOngoing(state.isPlaying)
             .setOnlyAlertOnce(true)
