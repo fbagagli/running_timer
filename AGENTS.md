@@ -35,9 +35,14 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - `MainActivity` coordinates with `LockScreenHelper` to dynamically enable `showWhenLocked` and `turnScreenOn` (via API 27+ methods or legacy window flags) when a workout is active or paused (`isPlaying || totalElapsedSeconds > 0`), ensuring users can view and control their workout over the lock screen.
 - `ActiveWorkoutScreen` utilizes Compose `DisposableEffect` with `WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON` to prevent the display from turning off while viewing the active workout session.
 
-### 3. Audio & Voice Cues (`TtsManager.kt`, `VoicePromptManager.kt`)
+### 3. Audio & Voice Cues (`TtsManager.kt`, `VoicePromptManager.kt`, `TimerManager.kt`, `WorkoutStep.kt`)
 - Voice feedback uses `VoicePromptManager` interface implemented by `TtsManager` (Android `TextToSpeech`).
 - Handles queued messages if called before `OnInitListener` completes.
+- When `announceRepetitions` is enabled, both Run and Walk phase announcements include the repetition count (*"Start running, X of Y"*, *"Start walking, X of Y"*).
+- During active "Run" phases, `TimerManager` triggers intermediate voice prompts:
+  - *"Halfway"* at midpoint for intervals with duration $> 120$ seconds.
+  - *"One minute left"* at 60 seconds remaining for intervals with duration $\ge 180$ seconds.
+  - Intervals $\le 120$ seconds remain clean and free of intermediate announcements.
 
 ### 4. Data Models & Storage (`AppDatabase.kt`, `WorkoutDao.kt`, `WorkoutSessionDao.kt`, `WorkoutRepository.kt`)
 - Workouts and completed sessions are stored in a local **Room SQLite Database** (`kintsugi_run.db`, version 2).
