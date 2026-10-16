@@ -72,7 +72,7 @@ class WorkoutStepTest {
     }
 
     @Test
-    fun `flatten with multiple repeats and announceRepetitions true includes rep count in run message`() {
+    fun `flatten with multiple repeats and announceRepetitions true includes rep count in run and walk messages`() {
         val workout = Workout(
             workoutName = "Interval Repeats",
             warmupSeconds = 120,
@@ -87,12 +87,32 @@ class WorkoutStepTest {
         assertThat(steps).hasSize(8)
         assertThat(steps[0].message).isEqualTo("Start warm up")
         assertThat(steps[1].message).isEqualTo("Start running, 1 of 3")
-        assertThat(steps[2].message).isEqualTo("Start walking")
+        assertThat(steps[2].message).isEqualTo("Start walking, 1 of 3")
         assertThat(steps[3].message).isEqualTo("Start running, 2 of 3")
-        assertThat(steps[4].message).isEqualTo("Start walking")
+        assertThat(steps[4].message).isEqualTo("Start walking, 2 of 3")
         assertThat(steps[5].message).isEqualTo("Start running, 3 of 3")
-        assertThat(steps[6].message).isEqualTo("Start walking")
+        assertThat(steps[6].message).isEqualTo("Start walking, 3 of 3")
         assertThat(steps[7].message).isEqualTo("Start cool down")
+    }
+
+    @Test
+    fun `flatten with single repeat and announceRepetitions true keeps clean voice prompts without rep count`() {
+        val workout = Workout(
+            workoutName = "Single Rep Run",
+            warmupSeconds = 300,
+            runSeconds = 120,
+            walkSeconds = 60,
+            repeats = 1,
+            cooldownSeconds = 180
+        )
+
+        val steps = workout.flatten(announceRepetitions = true)
+
+        assertThat(steps).hasSize(4)
+        assertThat(steps[1].message).isEqualTo("Start running")
+        assertThat(steps[1].repetitionInfo).isNull()
+        assertThat(steps[2].message).isEqualTo("Start walking")
+        assertThat(steps[2].repetitionInfo).isNull()
     }
 
     @Test

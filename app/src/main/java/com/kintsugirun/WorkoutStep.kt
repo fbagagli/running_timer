@@ -23,12 +23,17 @@ fun Workout.flatten(announceRepetitions: Boolean = false): List<WorkoutStep> {
         } else {
             "Start running"
         }
+        val walkMessage = if (announceRepetitions && repInfo != null) {
+            "Start walking, $repInfo"
+        } else {
+            "Start walking"
+        }
 
         if (runSeconds > 0) {
             steps.add(WorkoutStep("Run", runSeconds, runMessage, repInfo))
         }
         if (walkSeconds > 0) {
-            steps.add(WorkoutStep("Walk", walkSeconds, "Start walking", repInfo))
+            steps.add(WorkoutStep("Walk", walkSeconds, walkMessage, repInfo))
         }
     }
 
