@@ -39,11 +39,14 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - Voice feedback uses `VoicePromptManager` interface implemented by `TtsManager` (Android `TextToSpeech`).
 - Handles queued messages if called before `OnInitListener` completes.
 
-### 4. Data Models & Storage (`AppDatabase.kt`, `WorkoutDao.kt`, `WorkoutRepository.kt`)
-- Workouts are stored in a local **Room SQLite Database** (`kintsugi_run.db`).
+### 4. Data Models & Storage (`AppDatabase.kt`, `WorkoutDao.kt`, `WorkoutSessionDao.kt`, `WorkoutRepository.kt`)
+- Workouts and completed sessions are stored in a local **Room SQLite Database** (`kintsugi_run.db`, version 2).
 - `Workout` is a clean Room `@Entity(tableName = "workouts")` with auto-generated `Long` IDs.
-- `WorkoutDao.getAllWorkouts()` emits reactive `Flow<List<Workout>>`.
+- `WorkoutSession` is a Room `@Entity(tableName = "workout_sessions")` capturing completed and interrupted sessions with an immutable `@Embedded(prefix = "workout_")` snapshot of the executed `Workout`.
+- `WorkoutDao.getAllWorkouts()` and `WorkoutSessionDao.getLatestSessionForWorkout()` emit reactive Flows.
 - The flat workout structure (`Workout` containing warmup, run, walk, repeats, cooldown) is expanded linearly via `Workout.flatten()`.
+- Session persistence is centralized in `TimerManager.kt` on natural completion or early stop (`totalElapsedSeconds >= 30`).
+- Latest session for a workout is displayed in `WorkoutReviewScreen.kt`.
 
 ### 5. Workout Sharing & Import (`WorkoutQrHelper.kt`, `docs/index.html`)
 - Workout transfer uses Deep Link QR URIs (`kintsugirun://workout?name=...&w=...&r=...&k=...&n=...&c=...`).
@@ -51,7 +54,11 @@ KintsugiRun is an Android interval timer app for running workouts built with Jet
 - Workout sharing renders a QR code bitmap via ZXing.
 - Static companion web tool is located in `docs/index.html` (hosted on GitHub Pages).
 
-### 5. Dependency Injection & Navigation Wiring
+### 6. Universal Backup & Restore (`BackupHelper.kt`, `HomeScreen.kt`)
+- Full database backup to a single JSON file (`KintsugiBackup`) containing workouts and execution sessions with snapshots.
+- Export and import via Android Storage Access Framework (SAF) file picker contracts (`CreateDocument` and `OpenDocument`) accessible from `HomeScreen` TopBar menu.
+
+### 7. Dependency Injection & Navigation Wiring
 - Dependency injection is configured in `AppModule.kt` and initialized in `KintsugiApp.kt`.
 - Navigation uses type-safe Kotlin Serializable routes defined in `Routes.kt` (`HomeRoute`, `WorkoutReviewRoute`, `WorkoutEditorRoute`, `ActiveWorkoutRoute`).
 - ViewModels are injected into composables using `koinViewModel()`.
