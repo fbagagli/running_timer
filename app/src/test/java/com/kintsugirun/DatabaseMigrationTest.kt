@@ -17,4 +17,30 @@ class DatabaseMigrationTest {
             mockDb.execSQL(match { it.contains("CREATE TABLE IF NOT EXISTS `workout_sessions`") })
         }
     }
+
+    @Test
+    fun `migration 2 to 3 executes alter table statements for gps and metrics columns`() {
+        val mockDb = mockk<SupportSQLiteDatabase>(relaxed = true)
+
+        AppDatabase.MIGRATION_2_3.migrate(mockDb)
+
+        verify(exactly = 1) {
+            mockDb.execSQL(match { it.contains("ALTER TABLE workout_sessions ADD COLUMN totalDistanceMeters REAL NOT NULL DEFAULT 0.0") })
+        }
+        verify(exactly = 1) {
+            mockDb.execSQL(match { it.contains("ALTER TABLE workout_sessions ADD COLUMN runDistanceMeters REAL NOT NULL DEFAULT 0.0") })
+        }
+        verify(exactly = 1) {
+            mockDb.execSQL(match { it.contains("ALTER TABLE workout_sessions ADD COLUMN walkDistanceMeters REAL NOT NULL DEFAULT 0.0") })
+        }
+        verify(exactly = 1) {
+            mockDb.execSQL(match { it.contains("ALTER TABLE workout_sessions ADD COLUMN runPaceSecondsPerKm INTEGER NOT NULL DEFAULT 0") })
+        }
+        verify(exactly = 1) {
+            mockDb.execSQL(match { it.contains("ALTER TABLE workout_sessions ADD COLUMN walkPaceSecondsPerKm INTEGER NOT NULL DEFAULT 0") })
+        }
+        verify(exactly = 1) {
+            mockDb.execSQL(match { it.contains("ALTER TABLE workout_sessions ADD COLUMN gpsRouteJson TEXT DEFAULT NULL") })
+        }
+    }
 }

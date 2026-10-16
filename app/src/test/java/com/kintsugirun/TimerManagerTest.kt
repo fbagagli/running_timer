@@ -572,4 +572,163 @@ class TimerManagerTest {
             "Halfway"
         ).inOrder()
     }
+
+    @Test
+    fun `natural completion with gps tracker populates session with distance pace and route json`() {
+        val mockGpsTracker = mockk<GpsTracker>(relaxed = true)
+        val gpsPoints = listOf(
+            GpsPoint(latitude = 45.0, longitude = 9.0, timestamp = 1000L, phaseName = "Run"),
+            GpsPoint(latitude = 45.001, longitude = 9.001, timestamp = 2000L, phaseName = "Walk")
+        )
+        val metricsFlow = MutableStateFlow(
+            GpsMetrics(
+                totalDistanceMeters = 3000.0,
+                runDistanceMeters = 2000.0,
+                walkDistanceMeters = 1000.0,
+                points = gpsPoints
+            )
+        )
+        every { mockGpsTracker.metrics } returns metricsFlow
+
+        val managerWithGps = TimerManager(
+            timeProvider = timeProvider,
+            scope = testScope,
+            repository = repository,
+            gpsTracker = mockGpsTracker
+        )
+
+        val workout = Workout(
+            id = 50L,
+            workoutName = "GPS Run",
+            warmupSeconds = 0,
+            runSeconds = 600,
+            walkSeconds = 300,
+            repeats = 1,
+            cooldownSeconds = 0
+        )
+        managerWithGps.start(workout)
+
+        // Advance 900s
+        timeProvider.advanceTimeBy(900_000L)
+        managerWithGps.tick()
+        testScope.testScheduler.advanceUntilIdle()
+
+        val sessionSlot = slot<WorkoutSession>()
+        coVerify(exactly = 1) { repository.saveSession(capture(sessionSlot)) }
+
+        val savedSession = sessionSlot.captured
+        assertThat(savedSession.workoutId).isEqualTo(50L)
+        assertThat(savedSession.totalElapsedSeconds).isEqualTo(900)
+        assertThat(savedSession.isCompleted).isTrue()
+        assertThat(savedSession.totalDistanceMeters).isEqualTo(3000.0)
+        assertThat(savedSession.runDistanceMeters).isEqualTo(2000.0)
+        assertThat(savedSession.walkDistanceMeters).isEqualTo(1000.0)
+        // runSec = 600, runDist = 2000m (2.0 km) -> runPace = 600 / 2.0 = 300 s/km (5:00 min/km)
+        assertThat(savedSession.runPaceSecondsPerKm).isEqualTo(300)
+        // walkSec = 300, walkDist = 1000m (1.0 km) -> walkPace = 300 / 1.0 = 300 s/km
+        assertThat(savedSession.walkPaceSecondsPerKm).isEqualTo(300)
+        assertThat(savedSession.gpsRouteJson).isNotNull()
+        assertThat(savedSession.gpsRouteJson).contains("45.0")
+        assertThat(savedSession.gpsRouteJson).contains("45.001")
+    }
+
+    @Test
+    fun `early stop with gps tracker populates session with accumulated distance and pace`() {
+        val mockGpsTracker = mockk<GpsTracker>(relaxed = true)
+        val gpsPoints = listOf(
+            GpsPoint(latitude = 45.0, longitude = 9.0, timestamp = 1000L, phaseName = "Run")
+        )
+        val metricsFlow = MutableStateFlow(
+            GpsMetrics(
+                totalDistanceMeters = 500.0,
+                runDistanceMeters = 500.0,
+                walkDistanceMeters = 0.0,
+                points = gpsPoints
+            )
+        )
+        every { mockGpsTracker.metrics } returns metricsFlow
+
+        val managerWithGps = TimerManager(
+            timeProvider = timeProvider,
+            scope = testScope,
+            repository = repository,
+            gpsTracker = mockGpsTracker
+        )
+
+        val workout = Workout(
+            id = 55L,
+            workoutName = "Intervals",
+            warmupSeconds = 0,
+            runSeconds = 200,
+            walkSeconds = 100,
+            repeats = 1,
+            cooldownSeconds = 0
+        )
+        managerWithGps.start(workout)
+
+        // Advance 100s into run phase
+        timeProvider.advanceTimeBy(100_000L)
+        managerWithGps.tick()
+
+        managerWithGps.stop()
+        testScope.testScheduler.advanceUntilIdle()
+
+        val sessionSlot = slot<WorkoutSession>()
+        coVerify(exactly = 1) { repository.saveSession(capture(sessionSlot)) }
+
+        val savedSession = sessionSlot.captured
+        assertThat(savedSession.workoutId).isEqualTo(55L)
+        assertThat(savedSession.totalElapsedSeconds).isEqualTo(100)
+        assertThat(savedSession.isCompleted).isFalse()
+        assertThat(savedSession.totalDistanceMeters).isEqualTo(500.0)
+        assertThat(savedSession.runDistanceMeters).isEqualTo(500.0)
+        assertThat(savedSession.walkDistanceMeters).isEqualTo(0.0)
+        // runSec = 100, runDist = 500m (0.5 km) -> runPace = 100 / 0.5 = 200 s/km
+        assertThat(savedSession.runPaceSecondsPerKm).isEqualTo(200)
+        assertThat(savedSession.walkPaceSecondsPerKm).isEqualTo(0)
+        assertThat(savedSession.gpsRouteJson).isNotNull()
+    }
+
+    @Test
+    fun `pace calculation returns 0 when distance is 10 meters or less`() {
+        val mockGpsTracker = mockk<GpsTracker>(relaxed = true)
+        val metricsFlow = MutableStateFlow(
+            GpsMetrics(
+                totalDistanceMeters = 10.0,
+                runDistanceMeters = 10.0,
+                walkDistanceMeters = 0.0,
+                points = emptyList()
+            )
+        )
+        every { mockGpsTracker.metrics } returns metricsFlow
+
+        val managerWithGps = TimerManager(
+            timeProvider = timeProvider,
+            scope = testScope,
+            repository = repository,
+            gpsTracker = mockGpsTracker
+        )
+
+        val workout = Workout(
+            id = 60L,
+            workoutName = "Short",
+            warmupSeconds = 0,
+            runSeconds = 60,
+            walkSeconds = 0,
+            repeats = 1,
+            cooldownSeconds = 0
+        )
+        managerWithGps.start(workout)
+
+        timeProvider.advanceTimeBy(60_000L)
+        managerWithGps.tick()
+        testScope.testScheduler.advanceUntilIdle()
+
+        val sessionSlot = slot<WorkoutSession>()
+        coVerify(exactly = 1) { repository.saveSession(capture(sessionSlot)) }
+
+        val savedSession = sessionSlot.captured
+        assertThat(savedSession.runPaceSecondsPerKm).isEqualTo(0)
+        assertThat(savedSession.gpsRouteJson).isNull()
+    }
 }

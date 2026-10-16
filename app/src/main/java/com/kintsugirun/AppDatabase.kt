@@ -7,7 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Workout::class, WorkoutSession::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -36,6 +36,17 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE workout_sessions ADD COLUMN totalDistanceMeters REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE workout_sessions ADD COLUMN runDistanceMeters REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE workout_sessions ADD COLUMN walkDistanceMeters REAL NOT NULL DEFAULT 0.0")
+                db.execSQL("ALTER TABLE workout_sessions ADD COLUMN runPaceSecondsPerKm INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE workout_sessions ADD COLUMN walkPaceSecondsPerKm INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE workout_sessions ADD COLUMN gpsRouteJson TEXT DEFAULT NULL")
             }
         }
     }

@@ -29,5 +29,11 @@ data class WorkoutSession(
     val isCompleted: Boolean,
     val interruptedPhase: String? = null,
     @Embedded(prefix = "workout_")
-    val workoutSnapshot: Workout
+    val workoutSnapshot: Workout,
+    val totalDistanceMeters: Double = 0.0,
+    val runDistanceMeters: Double = 0.0,
+    val walkDistanceMeters: Double = 0.0,
+    val runPaceSecondsPerKm: Int = 0,
+    val walkPaceSecondsPerKm: Int = 0,
+    val gpsRouteJson: String? = null
 )

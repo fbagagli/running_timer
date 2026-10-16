@@ -5,6 +5,8 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlin.math.max
 
 data class TimerState(
@@ -119,13 +121,12 @@ class TimerManager(
             } else {
                 System.currentTimeMillis() - (state.totalElapsedSeconds * 1000L)
             }
-            val session = WorkoutSession(
-                workoutId = workout.id,
-                startedAtTimestamp = startTime,
+            val session = createSession(
+                workout = workout,
+                startTime = startTime,
                 totalElapsedSeconds = state.totalElapsedSeconds,
                 isCompleted = false,
-                interruptedPhase = phase,
-                workoutSnapshot = workout
+                interruptedPhase = phase
             )
             scope.launch {
                 repository?.saveSession(session)
@@ -236,13 +237,12 @@ class TimerManager(
                     } else {
                         System.currentTimeMillis() - (finalElapsedSeconds * 1000L)
                     }
-                    val session = WorkoutSession(
-                        workoutId = workout.id,
-                        startedAtTimestamp = startTime,
+                    val session = createSession(
+                        workout = workout,
+                        startTime = startTime,
                         totalElapsedSeconds = finalElapsedSeconds,
                         isCompleted = true,
-                        interruptedPhase = null,
-                        workoutSnapshot = workout
+                        interruptedPhase = null
                     )
                     scope.launch {
                         repository?.saveSession(session)
@@ -289,5 +289,75 @@ class TimerManager(
                 }
             }
         }
+    }
+
+    internal fun calculateRunAndWalkSeconds(): Pair<Int, Int> {
+        var runSec = 0
+        var walkSec = 0
+        val maxIndex = minOf(currentStepIndex, currentWorkoutSteps.size)
+        for (i in 0 until maxIndex) {
+            val step = currentWorkoutSteps[i]
+            if (step.phaseName.equals("Run", ignoreCase = true)) {
+                runSec += step.durationSeconds
+            } else if (step.phaseName.equals("Walk", ignoreCase = true)) {
+                walkSec += step.durationSeconds
+            }
+        }
+        if (currentStepIndex < currentWorkoutSteps.size) {
+            val currentStep = currentWorkoutSteps[currentStepIndex]
+            val remainingSec = _timerState.value.remainingSecondsInPhase
+            val elapsedInPhaseSec = max(0, currentStep.durationSeconds - remainingSec)
+            if (currentStep.phaseName.equals("Run", ignoreCase = true)) {
+                runSec += elapsedInPhaseSec
+            } else if (currentStep.phaseName.equals("Walk", ignoreCase = true)) {
+                walkSec += elapsedInPhaseSec
+            }
+        }
+        return Pair(runSec, walkSec)
+    }
+
+    internal fun createSession(
+        workout: Workout,
+        startTime: Long,
+        totalElapsedSeconds: Int,
+        isCompleted: Boolean,
+        interruptedPhase: String?
+    ): WorkoutSession {
+        val (runSec, walkSec) = calculateRunAndWalkSeconds()
+        val gps = gpsTracker?.metrics?.value
+        val totalDist = gps?.totalDistanceMeters ?: 0.0
+        val runDist = gps?.runDistanceMeters ?: 0.0
+        val walkDist = gps?.walkDistanceMeters ?: 0.0
+        val runPace = if (runDist > 10.0 && runSec > 0) {
+            (runSec / (runDist / 1000.0)).toInt()
+        } else {
+            0
+        }
+        val walkPace = if (walkDist > 10.0 && walkSec > 0) {
+            (walkSec / (walkDist / 1000.0)).toInt()
+        } else {
+            0
+        }
+        val points = gps?.points.orEmpty()
+        val routeJson = if (points.isNotEmpty()) {
+            Json.encodeToString(points)
+        } else {
+            null
+        }
+
+        return WorkoutSession(
+            workoutId = workout.id,
+            startedAtTimestamp = startTime,
+            totalElapsedSeconds = totalElapsedSeconds,
+            isCompleted = isCompleted,
+            interruptedPhase = interruptedPhase,
+            workoutSnapshot = workout,
+            totalDistanceMeters = totalDist,
+            runDistanceMeters = runDist,
+            walkDistanceMeters = walkDist,
+            runPaceSecondsPerKm = runPace,
+            walkPaceSecondsPerKm = walkPace,
+            gpsRouteJson = routeJson
+        )
     }
 }

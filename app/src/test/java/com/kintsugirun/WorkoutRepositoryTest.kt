@@ -114,6 +114,25 @@ class WorkoutRepositoryTest {
     }
 
     @Test
+    fun `saveSession with gps metrics delegates correctly to workoutSessionDao`() = runTest {
+        val sessionWithGps = sampleSession.copy(
+            id = 20L,
+            totalDistanceMeters = 5000.0,
+            runDistanceMeters = 3500.0,
+            walkDistanceMeters = 1500.0,
+            runPaceSecondsPerKm = 300,
+            walkPaceSecondsPerKm = 600,
+            gpsRouteJson = """[{"latitude":45.0,"longitude":9.0}]"""
+        )
+        coEvery { workoutSessionDao.insertSession(sessionWithGps) } returns 20L
+
+        val result = repository.saveSession(sessionWithGps)
+
+        assertThat(result).isEqualTo(20L)
+        coVerify(exactly = 1) { workoutSessionDao.insertSession(sessionWithGps) }
+    }
+
+    @Test
     fun `saveSessions delegates to workoutSessionDao insertAll`() = runTest {
         val sessions = listOf(sampleSession)
 
