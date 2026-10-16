@@ -1,13 +1,19 @@
 package com.kintsugirun
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
+class HomeViewModel(
+    private val repository: WorkoutRepository,
+    private val autoBackupManager: AutoBackupManager? = repository.autoBackupManager
+) : ViewModel() {
 
     data class ImportResult(val workoutsCount: Int, val sessionsCount: Int)
 
@@ -16,6 +22,24 @@ class HomeViewModel(private val repository: WorkoutRepository) : ViewModel() {
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+
+    private val _isAutoBackupEnabled = MutableStateFlow(
+        autoBackupManager?.isAutoBackupEnabled() == true
+    )
+    val isAutoBackupEnabled: StateFlow<Boolean> = _isAutoBackupEnabled.asStateFlow()
+
+    fun enableAutoBackup(treeUri: Uri) {
+        autoBackupManager?.setAutoBackupUri(treeUri)
+        _isAutoBackupEnabled.value = autoBackupManager?.isAutoBackupEnabled() ?: true
+        viewModelScope.launch {
+            repository.triggerAutoBackup()
+        }
+    }
+
+    fun disableAutoBackup() {
+        autoBackupManager?.setAutoBackupUri(null)
+        _isAutoBackupEnabled.value = false
+    }
 
     init {
         viewModelScope.launch {

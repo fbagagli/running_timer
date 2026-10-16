@@ -1,5 +1,6 @@
 package com.kintsugirun
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -33,11 +34,32 @@ fun HomeScreen(
     onCreateWorkout: () -> Unit
 ) {
     val workouts by viewModel.workouts.collectAsState()
+    val isAutoBackupEnabled by viewModel.isAutoBackupEnabled.collectAsState()
     var workoutToDelete by remember { mutableStateOf<Workout?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+
+    val autoBackupFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, takeFlags)
+                viewModel.enableAutoBackup(uri)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Auto-backup attivato")
+                }
+            } catch (e: Exception) {
+                viewModel.enableAutoBackup(uri)
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Auto-backup attivato")
+                }
+            }
+        }
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -144,6 +166,34 @@ fun HomeScreen(
                                     importLauncher.launch(arrayOf("application/json", "*/*"))
                                 }
                             )
+                            HorizontalDivider()
+                            if (!isAutoBackupEnabled) {
+                                DropdownMenuItem(
+                                    text = { Text("Attiva auto-backup continuo...") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        autoBackupFolderLauncher.launch(null)
+                                    }
+                                )
+                            } else {
+                                DropdownMenuItem(
+                                    text = { Text("Auto-backup attivo (cambia cartella)") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        autoBackupFolderLauncher.launch(null)
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Disattiva auto-backup") },
+                                    onClick = {
+                                        menuExpanded = false
+                                        viewModel.disableAutoBackup()
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar("Auto-backup disattivato")
+                                        }
+                                    }
+                                )
+                            }
                         }
                     }
                 }

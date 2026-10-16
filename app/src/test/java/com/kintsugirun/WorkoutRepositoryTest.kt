@@ -191,4 +191,94 @@ class WorkoutRepositoryTest {
 
         coVerify(exactly = 0) { workoutDao.insertOrUpdate(any()) }
     }
+
+    @Test
+    fun `triggerAutoBackup exports workouts and sessions and writes to autoBackupManager when enabled`() = runTest {
+        val autoBackupManager = mockk<AutoBackupManager>(relaxed = true)
+        every { autoBackupManager.isAutoBackupEnabled() } returns true
+        coEvery { autoBackupManager.writeBackup(any()) } returns true
+
+        every { workoutDao.getAllWorkouts() } returns flowOf(listOf(sampleWorkout))
+        every { workoutSessionDao.getAllSessions() } returns flowOf(listOf(sampleSession))
+
+        val repo = WorkoutRepository(workoutDao, workoutSessionDao, autoBackupManager)
+        repo.triggerAutoBackup()
+
+        coVerify(exactly = 1) { autoBackupManager.writeBackup(match { json ->
+            json.contains("Test Run") && json.contains("1200")
+        }) }
+    }
+
+    @Test
+    fun `triggerAutoBackup does not write backup when autoBackupManager is disabled`() = runTest {
+        val autoBackupManager = mockk<AutoBackupManager>(relaxed = true)
+        every { autoBackupManager.isAutoBackupEnabled() } returns false
+
+        val repo = WorkoutRepository(workoutDao, workoutSessionDao, autoBackupManager)
+        repo.triggerAutoBackup()
+
+        coVerify(exactly = 0) { autoBackupManager.writeBackup(any()) }
+    }
+
+    @Test
+    fun `saveWorkout triggers auto-backup in background`() = runTest {
+        val autoBackupManager = mockk<AutoBackupManager>(relaxed = true)
+        every { autoBackupManager.isAutoBackupEnabled() } returns true
+        coEvery { autoBackupManager.writeBackup(any()) } returns true
+
+        coEvery { workoutDao.insertOrUpdate(sampleWorkout) } returns 1L
+        every { workoutDao.getAllWorkouts() } returns flowOf(listOf(sampleWorkout))
+        every { workoutSessionDao.getAllSessions() } returns flowOf(emptyList())
+
+        val dispatcher = kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)
+        val testScope = kotlinx.coroutines.CoroutineScope(dispatcher)
+        val repo = WorkoutRepository(workoutDao, workoutSessionDao, autoBackupManager, testScope, dispatcher)
+
+        val id = repo.saveWorkout(sampleWorkout)
+        testScheduler.advanceUntilIdle()
+
+        assertThat(id).isEqualTo(1L)
+        coVerify(atLeast = 1) { autoBackupManager.writeBackup(any()) }
+    }
+
+    @Test
+    fun `deleteWorkout triggers auto-backup in background`() = runTest {
+        val autoBackupManager = mockk<AutoBackupManager>(relaxed = true)
+        every { autoBackupManager.isAutoBackupEnabled() } returns true
+        coEvery { autoBackupManager.writeBackup(any()) } returns true
+
+        every { workoutDao.getAllWorkouts() } returns flowOf(emptyList())
+        every { workoutSessionDao.getAllSessions() } returns flowOf(emptyList())
+
+        val dispatcher = kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)
+        val testScope = kotlinx.coroutines.CoroutineScope(dispatcher)
+        val repo = WorkoutRepository(workoutDao, workoutSessionDao, autoBackupManager, testScope, dispatcher)
+
+        repo.deleteWorkout(1L)
+        testScheduler.advanceUntilIdle()
+
+        coVerify(exactly = 1) { workoutDao.deleteById(1L) }
+        coVerify(atLeast = 1) { autoBackupManager.writeBackup(any()) }
+    }
+
+    @Test
+    fun `saveSession triggers auto-backup in background`() = runTest {
+        val autoBackupManager = mockk<AutoBackupManager>(relaxed = true)
+        every { autoBackupManager.isAutoBackupEnabled() } returns true
+        coEvery { autoBackupManager.writeBackup(any()) } returns true
+
+        coEvery { workoutSessionDao.insertSession(sampleSession) } returns 10L
+        every { workoutDao.getAllWorkouts() } returns flowOf(emptyList())
+        every { workoutSessionDao.getAllSessions() } returns flowOf(listOf(sampleSession))
+
+        val dispatcher = kotlinx.coroutines.test.StandardTestDispatcher(testScheduler)
+        val testScope = kotlinx.coroutines.CoroutineScope(dispatcher)
+        val repo = WorkoutRepository(workoutDao, workoutSessionDao, autoBackupManager, testScope, dispatcher)
+
+        val id = repo.saveSession(sampleSession)
+        testScheduler.advanceUntilIdle()
+
+        assertThat(id).isEqualTo(10L)
+        coVerify(atLeast = 1) { autoBackupManager.writeBackup(any()) }
+    }
 }

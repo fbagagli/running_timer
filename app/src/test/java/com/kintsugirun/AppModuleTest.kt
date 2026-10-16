@@ -47,8 +47,12 @@ class AppModuleTest : KoinTest {
         val workoutSessionDao: WorkoutSessionDao = get()
         assertThat(workoutSessionDao).isNotNull()
 
+        val autoBackupManager: AutoBackupManager = get()
+        assertThat(autoBackupManager).isNotNull()
+
         val repository: WorkoutRepository = get()
         assertThat(repository).isNotNull()
+        assertThat(repository.autoBackupManager).isSameInstanceAs(autoBackupManager)
 
         val homeViewModel: HomeViewModel = get()
         assertThat(homeViewModel).isNotNull()

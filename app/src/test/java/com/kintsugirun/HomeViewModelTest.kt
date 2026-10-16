@@ -1,10 +1,13 @@
 package com.kintsugirun
 
+import android.net.Uri
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -184,5 +187,49 @@ class HomeViewModelTest {
 
         assertThat(result.isFailure).isTrue()
         assertThat(result.exceptionOrNull()).isInstanceOf(IllegalStateException::class.java)
+    }
+
+    @Test
+    fun `isAutoBackupEnabled reflects autoBackupManager state`() = runTest {
+        val autoBackupManager = mockk<AutoBackupManager>(relaxed = true)
+        every { autoBackupManager.isAutoBackupEnabled() } returns true
+
+        val viewModel = HomeViewModel(repository, autoBackupManager)
+        testScheduler.advanceUntilIdle()
+
+        assertThat(viewModel.isAutoBackupEnabled.value).isTrue()
+    }
+
+    @Test
+    fun `enableAutoBackup sets URI and triggers repository triggerAutoBackup`() = runTest {
+        val autoBackupManager = mockk<AutoBackupManager>(relaxed = true)
+        every { autoBackupManager.isAutoBackupEnabled() } returns true
+        val mockUri = mockk<Uri>()
+
+        val viewModel = HomeViewModel(repository, autoBackupManager)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.enableAutoBackup(mockUri)
+        testScheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { autoBackupManager.setAutoBackupUri(mockUri) }
+        assertThat(viewModel.isAutoBackupEnabled.value).isTrue()
+        coVerify(exactly = 1) { repository.triggerAutoBackup() }
+    }
+
+    @Test
+    fun `disableAutoBackup clears URI on autoBackupManager and updates state to false`() = runTest {
+        val autoBackupManager = mockk<AutoBackupManager>(relaxed = true)
+        every { autoBackupManager.isAutoBackupEnabled() } returns true
+
+        val viewModel = HomeViewModel(repository, autoBackupManager)
+        testScheduler.advanceUntilIdle()
+        assertThat(viewModel.isAutoBackupEnabled.value).isTrue()
+
+        viewModel.disableAutoBackup()
+        testScheduler.advanceUntilIdle()
+
+        verify(exactly = 1) { autoBackupManager.setAutoBackupUri(null) }
+        assertThat(viewModel.isAutoBackupEnabled.value).isFalse()
     }
 }

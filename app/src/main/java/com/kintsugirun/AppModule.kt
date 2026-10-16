@@ -10,6 +10,9 @@ val appModule = module {
     single<TimeProvider> { SystemTimeProvider() }
     single { TimerManager(timeProvider = get(), repository = get()) }
 
+    // Auto-Backup
+    single { AutoBackupManager(androidContext()) }
+
     // Room Database
     single {
         Room.databaseBuilder(
@@ -23,7 +26,7 @@ val appModule = module {
     }
     single { get<AppDatabase>().workoutDao() }
     single { get<AppDatabase>().workoutSessionDao() }
-    single { WorkoutRepository(get(), get()) }
+    single { WorkoutRepository(get(), get(), get()) }
 
     viewModel { HomeViewModel(get()) }
     viewModel { WorkoutReviewViewModel(get()) }
