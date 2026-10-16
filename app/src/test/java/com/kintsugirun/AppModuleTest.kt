@@ -41,6 +41,12 @@ class AppModuleTest : KoinTest {
 
     @Test
     fun `verify appModule resolves dependencies properly`() {
+        val workoutDao: WorkoutDao = get()
+        assertThat(workoutDao).isNotNull()
+
+        val workoutSessionDao: WorkoutSessionDao = get()
+        assertThat(workoutSessionDao).isNotNull()
+
         val repository: WorkoutRepository = get()
         assertThat(repository).isNotNull()
 

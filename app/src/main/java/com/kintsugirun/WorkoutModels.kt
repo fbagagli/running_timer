@@ -1,8 +1,11 @@
 package com.kintsugirun
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
+@Serializable
 @Entity(tableName = "workouts")
 data class Workout(
     @PrimaryKey(autoGenerate = true)
@@ -13,4 +16,18 @@ data class Workout(
     val walkSeconds: Int = 60,
     val repeats: Int = 5,
     val cooldownSeconds: Int = 300
+)
+
+@Serializable
+@Entity(tableName = "workout_sessions")
+data class WorkoutSession(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val workoutId: Long,
+    val startedAtTimestamp: Long,
+    val totalElapsedSeconds: Int,
+    val isCompleted: Boolean,
+    val interruptedPhase: String? = null,
+    @Embedded(prefix = "workout_")
+    val workoutSnapshot: Workout
 )

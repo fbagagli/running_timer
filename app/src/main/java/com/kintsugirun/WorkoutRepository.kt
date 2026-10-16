@@ -6,7 +6,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
 class WorkoutRepository(
-    private val workoutDao: WorkoutDao
+    private val workoutDao: WorkoutDao,
+    private val workoutSessionDao: WorkoutSessionDao
 ) {
     private val tag = "WorkoutRepository"
 
@@ -22,6 +23,24 @@ class WorkoutRepository(
 
     suspend fun deleteWorkout(id: Long) = withContext(Dispatchers.IO) {
         workoutDao.deleteById(id)
+    }
+
+    suspend fun saveSession(session: WorkoutSession): Long = withContext(Dispatchers.IO) {
+        workoutSessionDao.insertSession(session)
+    }
+
+    suspend fun saveSessions(sessions: List<WorkoutSession>) = withContext(Dispatchers.IO) {
+        workoutSessionDao.insertAll(sessions)
+    }
+
+    fun getLatestSessionForWorkout(workoutId: Long): Flow<WorkoutSession?> =
+        workoutSessionDao.getLatestSessionForWorkout(workoutId)
+
+    fun getAllSessions(): Flow<List<WorkoutSession>> =
+        workoutSessionDao.getAllSessions()
+
+    suspend fun deleteAllSessions() = withContext(Dispatchers.IO) {
+        workoutSessionDao.deleteAllSessions()
     }
 
     suspend fun seedDefaultWorkoutsIfEmpty() = withContext(Dispatchers.IO) {

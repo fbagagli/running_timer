@@ -16,10 +16,14 @@ val appModule = module {
             androidContext(),
             AppDatabase::class.java,
             "kintsugi_run.db"
-        ).build()
+        )
+            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .fallbackToDestructiveMigration()
+            .build()
     }
     single { get<AppDatabase>().workoutDao() }
-    single { WorkoutRepository(get()) }
+    single { get<AppDatabase>().workoutSessionDao() }
+    single { WorkoutRepository(get(), get()) }
 
     viewModel { HomeViewModel(get()) }
     viewModel { WorkoutReviewViewModel(get()) }
