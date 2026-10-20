@@ -1,6 +1,7 @@
 package com.kintsugirun
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -16,12 +17,45 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.Locale
+
+const val MAP_USER_AGENT = "KintsugiRun/1.0 (Android; Workout Interval Timer)"
+
+object LeafletAssetLoader {
+    @Volatile
+    private var cachedCss: String? = null
+    @Volatile
+    private var cachedJs: String? = null
+
+    fun getLeafletCss(context: Context): String {
+        return cachedCss ?: synchronized(this) {
+            cachedCss ?: runCatching {
+                context.assets.open("leaflet/leaflet.css").bufferedReader().use { it.readText() }
+            }.getOrElse { "" }.also { if (it.isNotEmpty()) cachedCss = it }
+        }
+    }
+
+    fun getLeafletJs(context: Context): String {
+        return cachedJs ?: synchronized(this) {
+            cachedJs ?: runCatching {
+                context.assets.open("leaflet/leaflet.js").bufferedReader().use { it.readText() }
+            }.getOrElse { "" }.also { if (it.isNotEmpty()) cachedJs = it }
+        }
+    }
+
+    internal fun resetCache() {
+        synchronized(this) {
+            cachedCss = null
+            cachedJs = null
+        }
+    }
+}
 
 @Serializable
 internal data class RouteSegment(
@@ -70,16 +104,19 @@ internal fun buildRouteSegments(points: List<GpsPoint>): List<RouteSegment> {
     return segments
 }
 
-internal fun generateLeafletHtml(segmentsJson: String): String {
+internal fun generateLeafletHtml(
+    segmentsJson: String,
+    leafletCss: String = "",
+    leafletJs: String = ""
+): String {
     return """
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
+$leafletCss
     html, body, #map {
       height: 100%;
       width: 100%;
@@ -93,11 +130,14 @@ internal fun generateLeafletHtml(segmentsJson: String): String {
       padding: 0 4px !important;
     }
   </style>
+  <script>
+$leafletJs
+  </script>
 </head>
 <body>
   <div id="map"></div>
   <script>
-    document.addEventListener("DOMContentLoaded", function() {
+    function initMap() {
       try {
         var map = L.map('map', {
           zoomControl: false,
@@ -151,10 +191,20 @@ internal fun generateLeafletHtml(segmentsJson: String): String {
             fillOpacity: 1.0
           }).addTo(map);
         }
+
+        setTimeout(function() {
+          map.invalidateSize();
+        }, 200);
       } catch (err) {
         console.error("Leaflet error:", err);
       }
-    });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener("DOMContentLoaded", initMap);
+    } else {
+      initMap();
+    }
   </script>
 </body>
 </html>
@@ -184,10 +234,14 @@ fun OpenStreetMapRouteView(
         return
     }
 
-    val html = remember(gpsPoints) {
+    val context = LocalContext.current
+    val leafletCss = remember { LeafletAssetLoader.getLeafletCss(context) }
+    val leafletJs = remember { LeafletAssetLoader.getLeafletJs(context) }
+
+    val html = remember(gpsPoints, leafletCss, leafletJs) {
         val segments = buildRouteSegments(gpsPoints)
         val json = Json.encodeToString(segments)
-        generateLeafletHtml(json)
+        generateLeafletHtml(json, leafletCss = leafletCss, leafletJs = leafletJs)
     }
 
     AndroidView(
@@ -199,6 +253,7 @@ fun OpenStreetMapRouteView(
                     domStorageEnabled = true
                     loadWithOverviewMode = true
                     useWideViewPort = true
+                    userAgentString = MAP_USER_AGENT
                 }
                 webViewClient = object : WebViewClient() {
                     override fun onReceivedError(
