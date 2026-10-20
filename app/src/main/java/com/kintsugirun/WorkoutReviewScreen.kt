@@ -1,6 +1,7 @@
 package com.kintsugirun
 
-import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -43,12 +45,14 @@ fun WorkoutReviewScreen(
     val latestSession by viewModel.latestSession.collectAsState()
     var announceRepetitions by rememberSaveable { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(workoutId) {
         viewModel.loadWorkout(workoutId)
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(workout?.workoutName ?: "Loading...") },
@@ -100,7 +104,10 @@ fun WorkoutReviewScreen(
                     )
 
                     latestSession?.let { session ->
-                        LatestSessionCard(session = session)
+                        LatestSessionCard(
+                            session = session,
+                            snackbarHostState = snackbarHostState
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -249,7 +256,10 @@ fun WorkoutPhaseCard(phaseName: String, durationSeconds: Int, details: String = 
 }
 
 @Composable
-fun LatestSessionCard(session: WorkoutSession) {
+fun LatestSessionCard(
+    session: WorkoutSession,
+    snackbarHostState: SnackbarHostState? = null
+) {
     val formattedDate = remember(session.startedAtTimestamp) {
         val sdf = SimpleDateFormat("d MMM yyyy, HH:mm", Locale.getDefault())
         sdf.format(Date(session.startedAtTimestamp))
@@ -436,18 +446,41 @@ fun LatestSessionCard(session: WorkoutSession) {
                 )
 
                 val context = LocalContext.current
+                val coroutineScope = rememberCoroutineScope()
+                val gpxExportLauncher = rememberLauncherForActivityResult(
+                    contract = ActivityResultContracts.CreateDocument("application/gpx+xml")
+                ) { uri ->
+                    if (uri != null) {
+                        coroutineScope.launch {
+                            try {
+                                val result = GpxFileManager.saveGpxToUri(
+                                    context = context,
+                                    uri = uri,
+                                    workoutName = session.workoutSnapshot.workoutName,
+                                    points = gpsPoints
+                                )
+                                if (result.isSuccess) {
+                                    snackbarHostState?.showSnackbar("Traccia GPX salvata con successo")
+                                } else {
+                                    snackbarHostState?.showSnackbar("Errore durante il salvataggio della traccia GPX")
+                                }
+                            } catch (_: Exception) {
+                                snackbarHostState?.showSnackbar("Errore durante il salvataggio della traccia GPX")
+                            }
+                        }
+                    }
+                }
+
                 OutlinedButton(
                     onClick = {
-                        val gpx = GpxExportHelper.generateGpx(
-                            workoutName = session.workoutSnapshot.workoutName,
-                            points = gpsPoints
-                        )
-                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "application/gpx+xml"
-                            putExtra(Intent.EXTRA_SUBJECT, "${session.workoutSnapshot.workoutName}.gpx")
-                            putExtra(Intent.EXTRA_TEXT, gpx)
+                        try {
+                            val defaultFileName = GpxFileManager.sanitizeFileName(session.workoutSnapshot.workoutName)
+                            gpxExportLauncher.launch(defaultFileName)
+                        } catch (_: Exception) {
+                            coroutineScope.launch {
+                                snackbarHostState?.showSnackbar("Errore durante il salvataggio della traccia GPX")
+                            }
                         }
-                        context.startActivity(Intent.createChooser(sendIntent, "Esporta GPX"))
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -457,7 +490,7 @@ fun LatestSessionCard(session: WorkoutSession) {
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Esporta GPX")
+                    Text("Salva Traccia GPX")
                 }
             }
         }
