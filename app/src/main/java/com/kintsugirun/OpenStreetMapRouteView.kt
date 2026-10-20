@@ -158,14 +158,21 @@ internal fun generateLeafletHtml(
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="icon" href="data:,">
   $cssContent
   <style>
-    html, body, #map {
-      height: 100%;
+    html, body {
       width: 100%;
+      height: 100%;
       margin: 0;
       padding: 0;
+      overflow: hidden;
       background-color: transparent;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
     }
     .leaflet-control-attribution {
       font-size: 8px !important;
@@ -178,11 +185,24 @@ internal fun generateLeafletHtml(
 <body>
   <div id="map"></div>
   <script>
+    function ensureMapSize() {
+      var h = window.innerHeight || document.documentElement.clientHeight;
+      if (h && h > 0) {
+        var hStr = h + 'px';
+        document.documentElement.style.height = hStr;
+        document.body.style.height = hStr;
+        var container = document.getElementById('map');
+        if (container) {
+          container.style.height = hStr;
+        }
+      }
+    }
+
     function initMap() {
       try {
-        console.log("initMap called, typeof L: " + typeof L);
+        ensureMapSize();
         var container = document.getElementById('map');
-        console.log("container size: " + (container ? (container.offsetWidth + "x" + container.offsetHeight) : "null"));
+        console.log("initMap called, typeof L: " + typeof L + ", container: " + (container ? (container.offsetWidth + "x" + container.offsetHeight) : "null"));
 
         var map = L.map('map', {
           zoomControl: false,
@@ -238,14 +258,20 @@ internal fun generateLeafletHtml(
         }
 
         console.log("Map initialized successfully, total coords: " + allCoords.length);
-        setTimeout(function() {
+
+        window.addEventListener('resize', function() {
+          ensureMapSize();
           map.invalidateSize();
-          console.log("map.invalidateSize() called at 100ms");
+        });
+
+        setTimeout(function() {
+          ensureMapSize();
+          map.invalidateSize();
         }, 100);
         setTimeout(function() {
+          ensureMapSize();
           map.invalidateSize();
-          console.log("map.invalidateSize() called at 400ms");
-        }, 400);
+        }, 350);
       } catch (err) {
         console.error("Leaflet error:", err.message, err.stack);
       }
