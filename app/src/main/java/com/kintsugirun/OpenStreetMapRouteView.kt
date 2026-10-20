@@ -13,6 +13,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewAssetLoader
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -132,19 +133,33 @@ internal fun buildRouteSegments(points: List<GpsPoint>): List<RouteSegment> {
     return segments
 }
 
+const val APP_ASSETS_BASE_URL = "https://appassets.androidplatform.net/assets/leaflet/"
+
 internal fun generateLeafletHtml(
     segmentsJson: String,
     leafletCss: String = "",
     leafletJs: String = ""
 ): String {
+    val cssContent = if (leafletCss.isNotBlank()) {
+        "<style>\n$leafletCss\n</style>"
+    } else {
+        "<link rel=\"stylesheet\" href=\"${APP_ASSETS_BASE_URL}leaflet.css\" />"
+    }
+
+    val jsContent = if (leafletJs.isNotBlank()) {
+        "<script>\n$leafletJs\n</script>"
+    } else {
+        "<script src=\"${APP_ASSETS_BASE_URL}leaflet.js\"></script>"
+    }
+
     return """
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  $cssContent
   <style>
-$leafletCss
     html, body, #map {
       height: 100%;
       width: 100%;
@@ -158,9 +173,7 @@ $leafletCss
       padding: 0 4px !important;
     }
   </style>
-  <script>
-$leafletJs
-  </script>
+  $jsContent
 </head>
 <body>
   <div id="map"></div>
@@ -273,13 +286,16 @@ fun OpenStreetMapRouteView(
     }
 
     val context = LocalContext.current
-    val leafletCss = remember { LeafletAssetLoader.getLeafletCss(context) }
-    val leafletJs = remember { LeafletAssetLoader.getLeafletJs(context) }
+    val assetLoader = remember(context) {
+        WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+            .build()
+    }
 
-    val html = remember(gpsPoints, leafletCss, leafletJs) {
+    val html = remember(gpsPoints) {
         val segments = buildRouteSegments(gpsPoints)
         val json = Json.encodeToString(segments)
-        generateLeafletHtml(json, leafletCss = leafletCss, leafletJs = leafletJs)
+        generateLeafletHtml(json)
     }
 
     AppLog.d("LeafletMap", "OpenStreetMapRouteView composing, points: ${gpsPoints.size}, html size: ${html.length}")
@@ -307,6 +323,19 @@ fun OpenStreetMapRouteView(
                     }
                 }
                 webViewClient = object : WebViewClient() {
+                    override fun shouldInterceptRequest(
+                        view: WebView?,
+                        request: WebResourceRequest?
+                    ): WebResourceResponse? {
+                        val url = request?.url ?: return null
+                        val response = assetLoader.shouldInterceptRequest(url)
+                        if (response != null) {
+                            AppLog.d("LeafletMap", "Intercepted asset: $url -> ${response.mimeType}")
+                            return response
+                        }
+                        return super.shouldInterceptRequest(view, request)
+                    }
+
                     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                         super.onPageStarted(view, url, favicon)
                         AppLog.d("LeafletMap", "onPageStarted: $url")
@@ -350,15 +379,15 @@ fun OpenStreetMapRouteView(
                         AppLog.e("LeafletMap", "onReceivedSslError: url=${error?.url}, error=$error")
                     }
                 }
-                AppLog.d("LeafletMap", "factory: loading HTML via loadDataWithBaseURL (baseUrl=null)")
-                loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                AppLog.d("LeafletMap", "factory: loading HTML via loadDataWithBaseURL (baseUrl=$APP_ASSETS_BASE_URL)")
+                loadDataWithBaseURL(APP_ASSETS_BASE_URL, html, "text/html", "UTF-8", null)
             }
         },
         update = { webView ->
             if (webView.tag != html) {
                 webView.tag = html
-                AppLog.d("LeafletMap", "update: reloading HTML via loadDataWithBaseURL (baseUrl=null)")
-                webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
+                AppLog.d("LeafletMap", "update: reloading HTML via loadDataWithBaseURL (baseUrl=$APP_ASSETS_BASE_URL)")
+                webView.loadDataWithBaseURL(APP_ASSETS_BASE_URL, html, "text/html", "UTF-8", null)
             }
         },
         modifier = modifier.clip(RoundedCornerShape(12.dp))
