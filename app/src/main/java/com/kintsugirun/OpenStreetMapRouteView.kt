@@ -2,8 +2,15 @@ package com.kintsugirun
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
+import android.net.http.SslError
+import android.util.Log
+import android.webkit.ConsoleMessage
+import android.webkit.SslErrorHandler
+import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
@@ -25,6 +32,17 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.Locale
 
+internal object AppLog {
+    fun d(tag: String, msg: String) {
+        runCatching { Log.d(tag, msg) }
+    }
+    fun e(tag: String, msg: String, tr: Throwable? = null) {
+        runCatching {
+            if (tr != null) Log.e(tag, msg, tr) else Log.e(tag, msg)
+        }
+    }
+}
+
 const val MAP_USER_AGENT = "KintsugiRun/1.0 (Android; Workout Interval Timer)"
 
 object LeafletAssetLoader {
@@ -36,16 +54,26 @@ object LeafletAssetLoader {
     fun getLeafletCss(context: Context): String {
         return cachedCss ?: synchronized(this) {
             cachedCss ?: runCatching {
-                context.assets.open("leaflet/leaflet.css").bufferedReader().use { it.readText() }
-            }.getOrElse { "" }.also { if (it.isNotEmpty()) cachedCss = it }
+                val css = context.assets.open("leaflet/leaflet.css").bufferedReader().use { it.readText() }
+                AppLog.d("LeafletMap", "Loaded leaflet.css from assets, size: ${css.length}")
+                css
+            }.getOrElse { e ->
+                AppLog.e("LeafletMap", "FAILED to load leaflet.css from assets", e)
+                ""
+            }.also { if (it.isNotEmpty()) cachedCss = it }
         }
     }
 
     fun getLeafletJs(context: Context): String {
         return cachedJs ?: synchronized(this) {
             cachedJs ?: runCatching {
-                context.assets.open("leaflet/leaflet.js").bufferedReader().use { it.readText() }
-            }.getOrElse { "" }.also { if (it.isNotEmpty()) cachedJs = it }
+                val js = context.assets.open("leaflet/leaflet.js").bufferedReader().use { it.readText() }
+                AppLog.d("LeafletMap", "Loaded leaflet.js from assets, size: ${js.length}")
+                js
+            }.getOrElse { e ->
+                AppLog.e("LeafletMap", "FAILED to load leaflet.js from assets", e)
+                ""
+            }.also { if (it.isNotEmpty()) cachedJs = it }
         }
     }
 
@@ -122,7 +150,7 @@ $leafletCss
       width: 100%;
       margin: 0;
       padding: 0;
-      background-color: #1e293b;
+      background-color: transparent;
     }
     .leaflet-control-attribution {
       font-size: 8px !important;
@@ -139,6 +167,10 @@ $leafletJs
   <script>
     function initMap() {
       try {
+        console.log("initMap called, typeof L: " + typeof L);
+        var container = document.getElementById('map');
+        console.log("container size: " + (container ? (container.offsetWidth + "x" + container.offsetHeight) : "null"));
+
         var map = L.map('map', {
           zoomControl: false,
           attributionControl: true
@@ -192,11 +224,17 @@ $leafletJs
           }).addTo(map);
         }
 
+        console.log("Map initialized successfully, total coords: " + allCoords.length);
         setTimeout(function() {
           map.invalidateSize();
-        }, 200);
+          console.log("map.invalidateSize() called at 100ms");
+        }, 100);
+        setTimeout(function() {
+          map.invalidateSize();
+          console.log("map.invalidateSize() called at 400ms");
+        }, 400);
       } catch (err) {
-        console.error("Leaflet error:", err);
+        console.error("Leaflet error:", err.message, err.stack);
       }
     }
 
@@ -244,33 +282,83 @@ fun OpenStreetMapRouteView(
         generateLeafletHtml(json, leafletCss = leafletCss, leafletJs = leafletJs)
     }
 
+    AppLog.d("LeafletMap", "OpenStreetMapRouteView composing, points: ${gpsPoints.size}, html size: ${html.length}")
+
     AndroidView(
         factory = { ctx ->
+            runCatching { WebView.setWebContentsDebuggingEnabled(true) }
             WebView(ctx).apply {
                 tag = html
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    loadWithOverviewMode = true
-                    useWideViewPort = true
+                    loadWithOverviewMode = false
+                    useWideViewPort = false
                     userAgentString = MAP_USER_AGENT
                 }
+                webChromeClient = object : WebChromeClient() {
+                    override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
+                        AppLog.d(
+                            "LeafletMap",
+                            "[JS ${consoleMessage.messageLevel()}] ${consoleMessage.message()} (at ${consoleMessage.sourceId()}:${consoleMessage.lineNumber()})"
+                        )
+                        return true
+                    }
+                }
                 webViewClient = object : WebViewClient() {
+                    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                        super.onPageStarted(view, url, favicon)
+                        AppLog.d("LeafletMap", "onPageStarted: $url")
+                    }
+
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        AppLog.d("LeafletMap", "onPageFinished: $url")
+                    }
+
                     override fun onReceivedError(
                         view: WebView?,
                         request: WebResourceRequest?,
                         error: WebResourceError?
                     ) {
                         super.onReceivedError(view, request, error)
+                        AppLog.e(
+                            "LeafletMap",
+                            "onReceivedError: url=${request?.url}, code=${error?.errorCode}, desc=${error?.description}"
+                        )
+                    }
+
+                    override fun onReceivedHttpError(
+                        view: WebView?,
+                        request: WebResourceRequest?,
+                        errorResponse: WebResourceResponse?
+                    ) {
+                        super.onReceivedHttpError(view, request, errorResponse)
+                        AppLog.e(
+                            "LeafletMap",
+                            "onReceivedHttpError: url=${request?.url}, status=${errorResponse?.statusCode}, reason=${errorResponse?.reasonPhrase}"
+                        )
+                    }
+
+                    override fun onReceivedSslError(
+                        view: WebView?,
+                        handler: SslErrorHandler?,
+                        error: SslError?
+                    ) {
+                        super.onReceivedSslError(view, handler, error)
+                        AppLog.e("LeafletMap", "onReceivedSslError: url=${error?.url}, error=$error")
                     }
                 }
-                loadDataWithBaseURL("https://tile.openstreetmap.org/", html, "text/html", "UTF-8", null)
+                AppLog.d("LeafletMap", "factory: loading HTML via loadDataWithBaseURL (baseUrl=null)")
+                loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
             }
         },
         update = { webView ->
             if (webView.tag != html) {
                 webView.tag = html
-                webView.loadDataWithBaseURL("https://tile.openstreetmap.org/", html, "text/html", "UTF-8", null)
+                AppLog.d("LeafletMap", "update: reloading HTML via loadDataWithBaseURL (baseUrl=null)")
+                webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
             }
         },
         modifier = modifier.clip(RoundedCornerShape(12.dp))
