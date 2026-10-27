@@ -94,6 +94,58 @@ class OpenStreetMapRouteViewTest {
     }
 
     @Test
+    fun `generateLeafletHtml respects showZoomControls parameter`() {
+        val htmlDefault = generateLeafletHtml("[]")
+        assertThat(htmlDefault).contains("zoomControl: false")
+
+        val htmlZoomFalse = generateLeafletHtml("[]", showZoomControls = false)
+        assertThat(htmlZoomFalse).contains("zoomControl: false")
+
+        val htmlZoomTrue = generateLeafletHtml("[]", showZoomControls = true)
+        assertThat(htmlZoomTrue).contains("zoomControl: true")
+    }
+
+    @Test
+    fun `getPresentLegendItems detects all present workout phases`() {
+        val points = listOf(
+            GpsPoint(45.0, 9.0, 0.0, 1000L, "Warmup"),
+            GpsPoint(45.1, 9.1, 0.0, 2000L, "Run 1"),
+            GpsPoint(45.2, 9.2, 0.0, 3000L, "Walk 1"),
+            GpsPoint(45.3, 9.3, 0.0, 4000L, "Cooldown")
+        )
+
+        val items = getPresentLegendItems(points)
+        assertThat(items.map { it.label }).containsExactly(
+            "Riscaldamento",
+            "Corsa",
+            "Camminata",
+            "Defaticamento"
+        ).inOrder()
+
+        assertThat(items[0].color).isEqualTo(androidx.compose.ui.graphics.Color(0xFF3B82F6))
+        assertThat(items[1].color).isEqualTo(androidx.compose.ui.graphics.Color(0xFFEF4444))
+        assertThat(items[2].color).isEqualTo(androidx.compose.ui.graphics.Color(0xFF10B981))
+        assertThat(items[3].color).isEqualTo(androidx.compose.ui.graphics.Color(0xFF8B5CF6))
+    }
+
+    @Test
+    fun `getPresentLegendItems filters only phases that exist in points`() {
+        val points = listOf(
+            GpsPoint(45.0, 9.0, 0.0, 1000L, "Corsa veloce"),
+            GpsPoint(45.1, 9.1, 0.0, 2000L, "Defaticamento blando")
+        )
+
+        val items = getPresentLegendItems(points)
+        assertThat(items.map { it.label }).containsExactly("Corsa", "Defaticamento").inOrder()
+    }
+
+    @Test
+    fun `getPresentLegendItems returns fallback items when empty`() {
+        val items = getPresentLegendItems(emptyList())
+        assertThat(items.map { it.label }).containsExactly("Corsa", "Camminata").inOrder()
+    }
+
+    @Test
     fun `LeafletAssetLoader loads and caches CSS and JS from assets`() {
         val mockContext = mockk<Context>()
         val mockAssets = mockk<AssetManager>()

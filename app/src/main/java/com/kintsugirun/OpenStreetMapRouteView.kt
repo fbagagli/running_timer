@@ -15,19 +15,46 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewAssetLoader
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -138,7 +165,8 @@ const val APP_ASSETS_BASE_URL = "https://appassets.androidplatform.net/assets/le
 internal fun generateLeafletHtml(
     segmentsJson: String,
     leafletCss: String = "",
-    leafletJs: String = ""
+    leafletJs: String = "",
+    showZoomControls: Boolean = false
 ): String {
     val cssContent = if (leafletCss.isNotBlank()) {
         "<style>\n$leafletCss\n</style>"
@@ -205,7 +233,7 @@ internal fun generateLeafletHtml(
         console.log("initMap called, typeof L: " + typeof L + ", container: " + (container ? (container.offsetWidth + "x" + container.offsetHeight) : "null"));
 
         var map = L.map('map', {
-          zoomControl: false,
+          zoomControl: $showZoomControls,
           attributionControl: true
         });
 
@@ -292,7 +320,8 @@ internal fun generateLeafletHtml(
 @Composable
 fun OpenStreetMapRouteView(
     gpsPoints: List<GpsPoint>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    showZoomControls: Boolean = false
 ) {
     if (gpsPoints.isEmpty()) {
         Box(
@@ -318,10 +347,10 @@ fun OpenStreetMapRouteView(
             .build()
     }
 
-    val html = remember(gpsPoints) {
+    val html = remember(gpsPoints, showZoomControls) {
         val segments = buildRouteSegments(gpsPoints)
         val json = Json.encodeToString(segments)
-        generateLeafletHtml(json)
+        generateLeafletHtml(json, showZoomControls = showZoomControls)
     }
 
     AppLog.d("LeafletMap", "OpenStreetMapRouteView composing, points: ${gpsPoints.size}, html size: ${html.length}")
@@ -418,4 +447,215 @@ fun OpenStreetMapRouteView(
         },
         modifier = modifier.clip(RoundedCornerShape(12.dp))
     )
+}
+
+data class RouteLegendItem(
+    val label: String,
+    val color: Color
+)
+
+internal fun getPresentLegendItems(gpsPoints: List<GpsPoint>): List<RouteLegendItem> {
+    val items = mutableListOf<RouteLegendItem>()
+    val hasWarmup = gpsPoints.any {
+        val l = it.phaseName.lowercase(Locale.ROOT)
+        l.contains("warm") || l.contains("riscald")
+    }
+    val hasRun = gpsPoints.any {
+        val l = it.phaseName.lowercase(Locale.ROOT)
+        l.contains("run") || l.contains("corsa")
+    }
+    val hasWalk = gpsPoints.any {
+        val l = it.phaseName.lowercase(Locale.ROOT)
+        l.contains("walk") || l.contains("cammin")
+    }
+    val hasCooldown = gpsPoints.any {
+        val l = it.phaseName.lowercase(Locale.ROOT)
+        l.contains("cool") || l.contains("defatic")
+    }
+
+    if (hasWarmup) items.add(RouteLegendItem("Riscaldamento", Color(0xFF3B82F6)))
+    if (hasRun) items.add(RouteLegendItem("Corsa", Color(0xFFEF4444)))
+    if (hasWalk) items.add(RouteLegendItem("Camminata", Color(0xFF10B981)))
+    if (hasCooldown) items.add(RouteLegendItem("Defaticamento", Color(0xFF8B5CF6)))
+
+    if (items.isEmpty()) {
+        items.add(RouteLegendItem("Corsa", Color(0xFFEF4444)))
+        items.add(RouteLegendItem("Camminata", Color(0xFF10B981)))
+    }
+    return items
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun RouteLegendRow(
+    gpsPoints: List<GpsPoint>,
+    modifier: Modifier = Modifier,
+    includeMarkers: Boolean = false
+) {
+    val legendItems = remember(gpsPoints) { getPresentLegendItems(gpsPoints) }
+
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        legendItems.forEach { item ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(color = item.color, shape = CircleShape)
+                )
+                Text(
+                    text = item.label,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        if (includeMarkers && gpsPoints.isNotEmpty()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .border(1.5.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                        .background(color = Color(0xFF10B981), shape = CircleShape)
+                )
+                Text(
+                    text = "Partenza",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (gpsPoints.size > 1) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .border(1.5.dp, MaterialTheme.colorScheme.surface, CircleShape)
+                            .background(color = Color(0xFFEF4444), shape = CircleShape)
+                    )
+                    Text(
+                        text = "Arrivo",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FullscreenRouteMapDialog(
+    workoutName: String,
+    gpsPoints: List<GpsPoint>,
+    onDismiss: () -> Unit,
+    onExportGpx: (() -> Unit)? = null
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Column {
+                                Text(
+                                    text = workoutName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "Mappa percorso",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onDismiss) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Chiudi"
+                                )
+                            }
+                        },
+                        actions = {
+                            if (onExportGpx != null) {
+                                IconButton(onClick = onExportGpx) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Share,
+                                        contentDescription = "Salva GPX"
+                                    )
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.surface
+                        )
+                    )
+                }
+            ) { paddingValues ->
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                ) {
+                    OpenStreetMapRouteView(
+                        gpsPoints = gpsPoints,
+                        showZoomControls = true,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    Card(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f)
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "Legenda percorso",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            RouteLegendRow(
+                                gpsPoints = gpsPoints,
+                                includeMarkers = true
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

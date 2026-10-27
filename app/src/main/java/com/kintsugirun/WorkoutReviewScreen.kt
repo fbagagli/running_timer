@@ -3,8 +3,10 @@ package com.kintsugirun
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -21,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Share
@@ -436,13 +439,55 @@ fun LatestSessionCard(
             }
 
             if (gpsPoints.isNotEmpty()) {
+                var isMapFullscreen by rememberSaveable { mutableStateOf(false) }
+
                 Spacer(modifier = Modifier.height(4.dp))
-                OpenStreetMapRouteView(
-                    gpsPoints = gpsPoints,
+
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(190.dp)
                         .clip(RoundedCornerShape(12.dp))
+                ) {
+                    OpenStreetMapRouteView(
+                        gpsPoints = gpsPoints,
+                        showZoomControls = false,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    // Transparent clickable overlay for expanding map
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clickable { isMapFullscreen = true }
+                    )
+
+                    // Expand icon button in top right
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
+                            .clip(CircleShape)
+                            .clickable { isMapFullscreen = true },
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                        shadowElevation = 2.dp
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Fullscreen,
+                            contentDescription = "Schermo intero",
+                            modifier = Modifier
+                                .padding(6.dp)
+                                .size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+
+                RouteLegendRow(
+                    gpsPoints = gpsPoints,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
                 )
 
                 val context = LocalContext.current
@@ -471,17 +516,28 @@ fun LatestSessionCard(
                     }
                 }
 
-                OutlinedButton(
-                    onClick = {
-                        try {
-                            val defaultFileName = GpxFileManager.sanitizeFileName(session.workoutSnapshot.workoutName)
-                            gpxExportLauncher.launch(defaultFileName)
-                        } catch (_: Exception) {
-                            coroutineScope.launch {
-                                snackbarHostState?.showSnackbar("Errore durante il salvataggio della traccia GPX")
-                            }
+                val onExportGpx: () -> Unit = {
+                    try {
+                        val defaultFileName = GpxFileManager.sanitizeFileName(session.workoutSnapshot.workoutName)
+                        gpxExportLauncher.launch(defaultFileName)
+                    } catch (_: Exception) {
+                        coroutineScope.launch {
+                            snackbarHostState?.showSnackbar("Errore durante il salvataggio della traccia GPX")
                         }
-                    },
+                    }
+                }
+
+                if (isMapFullscreen) {
+                    FullscreenRouteMapDialog(
+                        workoutName = session.workoutSnapshot.workoutName,
+                        gpsPoints = gpsPoints,
+                        onDismiss = { isMapFullscreen = false },
+                        onExportGpx = onExportGpx
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onExportGpx,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
