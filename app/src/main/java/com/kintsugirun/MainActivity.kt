@@ -17,13 +17,14 @@ import org.koin.android.ext.android.inject
 
 class MainActivity : ComponentActivity() {
     private val timerManager: TimerManager by inject()
+    private val audioPreferences: AudioPreferences by inject()
     private lateinit var ttsManager: TtsManager
     private val pendingRoute = MutableStateFlow<ActiveWorkoutRoute?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        ttsManager = TtsManager(this)
+        ttsManager = TtsManager(this, audioPreferences)
         timerManager.setVoicePromptManager(ttsManager)
 
         lifecycleScope.launch {

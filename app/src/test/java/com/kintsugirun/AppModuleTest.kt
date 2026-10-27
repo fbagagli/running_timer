@@ -72,5 +72,11 @@ class AppModuleTest : KoinTest {
 
         val gpsTracker: GpsTracker = get()
         assertThat(gpsTracker).isNotNull()
+
+        val audioPreferences: AudioPreferences = get()
+        assertThat(audioPreferences).isNotNull()
+
+        val ttsManager: TtsManager = get { parametersOf(mockApplication) }
+        assertThat(ttsManager).isNotNull()
     }
 }

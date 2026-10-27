@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.text.style.TextOverflow
 import kotlinx.coroutines.launch
@@ -42,13 +43,18 @@ fun WorkoutReviewScreen(
     viewModel: WorkoutReviewViewModel,
     onStartWorkout: (announceRepetitions: Boolean) -> Unit,
     onNavigateBack: () -> Unit,
-    onEditWorkout: (workoutId: Long) -> Unit
+    onEditWorkout: (workoutId: Long) -> Unit,
+    audioPreferences: AudioPreferences? = null
 ) {
     val workout by viewModel.workout.collectAsState()
     val latestSession by viewModel.latestSession.collectAsState()
     var announceRepetitions by rememberSaveable { mutableStateOf(false) }
     var showQrDialog by remember { mutableStateOf(false) }
+    var showAudioSettingsDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val effectiveAudioPreferences = audioPreferences ?: viewModel.audioPreferences ?: remember(context) { AudioPreferences(context) }
+    val audioFocusMode by effectiveAudioPreferences.audioFocusMode.collectAsState()
 
     LaunchedEffect(workoutId) {
         viewModel.loadWorkout(workoutId)
@@ -68,6 +74,12 @@ fun WorkoutReviewScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { showAudioSettingsDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.Tune,
+                            contentDescription = "Audio Settings"
+                        )
+                    }
                     IconButton(onClick = { showQrDialog = true }) {
                         Icon(
                             imageVector = Icons.Filled.QrCode,
@@ -155,8 +167,57 @@ fun WorkoutReviewScreen(
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                 }
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showAudioSettingsDialog = true },
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Tune,
+                                contentDescription = "Audio settings",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "Musica: ${if (audioFocusMode == AudioFocusMode.DUCK) "Abbassa volume" else "Pausa"}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = if (audioFocusMode == AudioFocusMode.DUCK)
+                                        "La musica continua a basso volume in sottofondo"
+                                    else
+                                        "Mette in pausa per podcast e audiolibri",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        TextButton(onClick = { showAudioSettingsDialog = true }) {
+                            Text("Modifica")
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Button(
                     onClick = { onStartWorkout(announceRepetitions) },
@@ -205,6 +266,13 @@ fun WorkoutReviewScreen(
                             Text("Close")
                         }
                     }
+                )
+            }
+
+            if (showAudioSettingsDialog) {
+                AudioSettingsDialog(
+                    audioPreferences = effectiveAudioPreferences,
+                    onDismissRequest = { showAudioSettingsDialog = false }
                 )
             }
         } ?: run {

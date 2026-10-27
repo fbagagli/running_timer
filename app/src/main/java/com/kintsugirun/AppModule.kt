@@ -1,5 +1,6 @@
 package com.kintsugirun
 
+import android.content.Context
 import androidx.room.Room
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
@@ -10,6 +11,10 @@ val appModule = module {
     single<TimeProvider> { SystemTimeProvider() }
     single { GpsTracker(androidContext()) }
     single { TimerManager(timeProvider = get(), repository = get(), gpsTracker = get()) }
+
+    // Audio Focus & TTS
+    single { AudioPreferences(androidContext()) }
+    factory { (context: Context) -> TtsManager(context, get()) }
 
     // Auto-Backup
     single { AutoBackupManager(androidContext()) }
@@ -29,8 +34,8 @@ val appModule = module {
     single { get<AppDatabase>().workoutSessionDao() }
     single { WorkoutRepository(get(), get(), get()) }
 
-    viewModel { HomeViewModel(get()) }
-    viewModel { WorkoutReviewViewModel(get()) }
+    viewModel { HomeViewModel(get(), audioPreferences = get()) }
+    viewModel { WorkoutReviewViewModel(get(), audioPreferences = get()) }
     viewModel { (workoutId: Long?) -> WorkoutEditorViewModel(get(), workoutId) }
     viewModel { ActiveWorkoutViewModel(get(), get(), androidApplication(), get()) }
 }

@@ -9,7 +9,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 class WorkoutReviewViewModel(
-    private val repository: WorkoutRepository
+    private val repository: WorkoutRepository,
+    val audioPreferences: AudioPreferences? = null
 ) : ViewModel() {
 
     private val _workout = MutableStateFlow<Workout?>(null)

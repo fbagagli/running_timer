@@ -31,15 +31,18 @@ import java.util.Locale
 fun HomeScreen(
     viewModel: HomeViewModel,
     onNavigateToWorkout: (Long) -> Unit,
-    onCreateWorkout: () -> Unit
+    onCreateWorkout: () -> Unit,
+    audioPreferences: AudioPreferences? = null
 ) {
     val workouts by viewModel.workouts.collectAsState()
     val isAutoBackupEnabled by viewModel.isAutoBackupEnabled.collectAsState()
     var workoutToDelete by remember { mutableStateOf<Workout?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
+    var showAudioSettingsDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
+    val effectiveAudioPreferences = audioPreferences ?: viewModel.audioPreferences ?: remember(context) { AudioPreferences(context) }
 
     val autoBackupFolderLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -167,6 +170,14 @@ fun HomeScreen(
                                 }
                             )
                             HorizontalDivider()
+                            DropdownMenuItem(
+                                text = { Text("Impostazioni audio...") },
+                                onClick = {
+                                    menuExpanded = false
+                                    showAudioSettingsDialog = true
+                                }
+                            )
+                            HorizontalDivider()
                             if (!isAutoBackupEnabled) {
                                 DropdownMenuItem(
                                     text = { Text("Attiva auto-backup continuo...") },
@@ -257,6 +268,13 @@ fun HomeScreen(
                         Text("Cancel")
                     }
                 }
+            )
+        }
+
+        if (showAudioSettingsDialog) {
+            AudioSettingsDialog(
+                audioPreferences = effectiveAudioPreferences,
+                onDismissRequest = { showAudioSettingsDialog = false }
             )
         }
     }

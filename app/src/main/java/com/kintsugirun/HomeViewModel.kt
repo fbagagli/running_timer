@@ -12,7 +12,8 @@ import kotlinx.coroutines.launch
 
 class HomeViewModel(
     private val repository: WorkoutRepository,
-    private val autoBackupManager: AutoBackupManager? = repository.autoBackupManager
+    private val autoBackupManager: AutoBackupManager? = repository.autoBackupManager,
+    val audioPreferences: AudioPreferences? = null
 ) : ViewModel() {
 
     data class ImportResult(val workoutsCount: Int, val sessionsCount: Int)
