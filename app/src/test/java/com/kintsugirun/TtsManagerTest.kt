@@ -114,6 +114,7 @@ class TtsManagerTest {
 
         // Wait duck delay
         testDispatcher.scheduler.advanceTimeBy(TtsManager.PRE_SPEECH_DUCK_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
         verify(exactly = 1) {
             textToSpeech.speak("Queued Message", TextToSpeech.QUEUE_ADD, null, any())
         }
@@ -138,9 +139,9 @@ class TtsManagerTest {
 
         manager.speak("Running Interval")
 
-        verify {
-            constructedWith<AudioFocusRequest.Builder>(EqMatcher(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)).build()
-        }
+        verify(exactly = 1) { audioManager.requestAudioFocus(any<AudioFocusRequest>()) }
+        assertThat(manager.isFocusHeld).isTrue()
+        assertThat(manager.lastFocusGain).isEqualTo(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
     }
 
     @Test
@@ -151,9 +152,9 @@ class TtsManagerTest {
 
         manager.speak("Running Interval")
 
-        verify {
-            constructedWith<AudioFocusRequest.Builder>(EqMatcher(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)).build()
-        }
+        verify(exactly = 1) { audioManager.requestAudioFocus(any<AudioFocusRequest>()) }
+        assertThat(manager.isFocusHeld).isTrue()
+        assertThat(manager.lastFocusGain).isEqualTo(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
     }
 
     @Test
@@ -171,6 +172,7 @@ class TtsManagerTest {
         assertThat(manager.isFocusHeld).isTrue()
 
         testDispatcher.scheduler.advanceTimeBy(TtsManager.PRE_SPEECH_DUCK_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
         val utteranceSlot = slot<String>()
         verify(exactly = 1) {
             textToSpeech.speak("Legacy Audio Focus", TextToSpeech.QUEUE_ADD, null, capture(utteranceSlot))
@@ -178,6 +180,7 @@ class TtsManagerTest {
 
         manager.utteranceProgressListener.onDone(utteranceSlot.captured)
         testDispatcher.scheduler.advanceTimeBy(TtsManager.POST_SPEECH_RELEASE_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
 
         @Suppress("DEPRECATION")
         verify(exactly = 1) { audioManager.abandonAudioFocus(any()) }
@@ -191,6 +194,7 @@ class TtsManagerTest {
 
         manager.speak("Workout started")
         testDispatcher.scheduler.advanceTimeBy(TtsManager.PRE_SPEECH_DUCK_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
 
         val utteranceSlot = slot<String>()
         verify(exactly = 1) {
@@ -200,11 +204,13 @@ class TtsManagerTest {
         // When speech finishes, focus should NOT be released before 400ms delay
         manager.utteranceProgressListener.onDone(utteranceSlot.captured)
         testDispatcher.scheduler.advanceTimeBy(200L)
+        testDispatcher.scheduler.runCurrent()
         verify(exactly = 0) { audioManager.abandonAudioFocusRequest(any()) }
         assertThat(manager.isFocusHeld).isTrue()
 
         // After remaining 200ms (total 400ms), focus is abandoned
         testDispatcher.scheduler.advanceTimeBy(200L)
+        testDispatcher.scheduler.runCurrent()
         verify(exactly = 1) { audioManager.abandonAudioFocusRequest(any()) }
         assertThat(manager.isFocusHeld).isFalse()
     }
@@ -216,6 +222,7 @@ class TtsManagerTest {
 
         manager.speak("Error prompt")
         testDispatcher.scheduler.advanceTimeBy(TtsManager.PRE_SPEECH_DUCK_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
 
         val utteranceSlot = slot<String>()
         verify(exactly = 1) {
@@ -225,6 +232,7 @@ class TtsManagerTest {
         @Suppress("DEPRECATION")
         manager.utteranceProgressListener.onError(utteranceSlot.captured)
         testDispatcher.scheduler.advanceTimeBy(TtsManager.POST_SPEECH_RELEASE_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
 
         verify(exactly = 1) { audioManager.abandonAudioFocusRequest(any()) }
         assertThat(manager.isFocusHeld).isFalse()
@@ -239,6 +247,7 @@ class TtsManagerTest {
         manager.speak("Second message")
 
         testDispatcher.scheduler.advanceTimeBy(TtsManager.PRE_SPEECH_DUCK_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
 
         val utteranceSlots = mutableListOf<String>()
         verify(exactly = 2) {
@@ -252,6 +261,7 @@ class TtsManagerTest {
         // First finishes
         manager.utteranceProgressListener.onDone(id1)
         testDispatcher.scheduler.advanceTimeBy(TtsManager.POST_SPEECH_RELEASE_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
 
         // Focus still held because second message is not done
         verify(exactly = 0) { audioManager.abandonAudioFocusRequest(any()) }
@@ -260,6 +270,7 @@ class TtsManagerTest {
         // Second finishes
         manager.utteranceProgressListener.onDone(id2)
         testDispatcher.scheduler.advanceTimeBy(TtsManager.POST_SPEECH_RELEASE_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
 
         // Now focus is released
         verify(exactly = 1) { audioManager.abandonAudioFocusRequest(any()) }
@@ -273,6 +284,7 @@ class TtsManagerTest {
 
         manager.speak("Message 1")
         testDispatcher.scheduler.advanceTimeBy(TtsManager.PRE_SPEECH_DUCK_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
 
         val id1Slot = slot<String>()
         verify { textToSpeech.speak("Message 1", TextToSpeech.QUEUE_ADD, null, capture(id1Slot)) }
@@ -280,23 +292,27 @@ class TtsManagerTest {
         manager.utteranceProgressListener.onDone(id1Slot.captured)
         // Advance 200ms (halfway through the 400ms release delay)
         testDispatcher.scheduler.advanceTimeBy(200L)
+        testDispatcher.scheduler.runCurrent()
 
         // New message arrives before focus release
         manager.speak("Message 2")
 
         // Advance 300ms more (past the original 400ms mark)
         testDispatcher.scheduler.advanceTimeBy(300L)
+        testDispatcher.scheduler.runCurrent()
         verify(exactly = 0) { audioManager.abandonAudioFocusRequest(any()) }
         assertThat(manager.isFocusHeld).isTrue()
 
         // Advance remaining duck delay for Message 2
         testDispatcher.scheduler.advanceTimeBy(700L)
+        testDispatcher.scheduler.runCurrent()
         val id2Slot = slot<String>()
         verify { textToSpeech.speak("Message 2", TextToSpeech.QUEUE_ADD, null, capture(id2Slot)) }
 
         // Finish Message 2
         manager.utteranceProgressListener.onDone(id2Slot.captured)
         testDispatcher.scheduler.advanceTimeBy(TtsManager.POST_SPEECH_RELEASE_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
 
         verify(exactly = 1) { audioManager.abandonAudioFocusRequest(any()) }
         assertThat(manager.isFocusHeld).isFalse()
@@ -320,6 +336,7 @@ class TtsManagerTest {
 
         // Advance time - no speaking should happen since coroutines were cancelled
         testDispatcher.scheduler.advanceTimeBy(TtsManager.PRE_SPEECH_DUCK_DELAY_MS)
+        testDispatcher.scheduler.runCurrent()
         verify(exactly = 0) { textToSpeech.speak(any(), any(), any(), any()) }
     }
 }

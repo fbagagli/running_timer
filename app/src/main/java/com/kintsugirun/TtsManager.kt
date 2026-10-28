@@ -1,5 +1,6 @@
 package com.kintsugirun
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
@@ -8,6 +9,7 @@ import android.os.Build
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import android.util.Log
+import androidx.annotation.RequiresApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -41,13 +43,15 @@ class TtsManager(
     internal val activeUtterances = Collections.synchronizedSet(mutableSetOf<String>())
     private var releaseJob: Job? = null
     internal var isFocusHeld = false
-    private var currentFocusRequest: AudioFocusRequest? = null
-    private var lastFocusGain: Int? = null
+    internal var currentFocusRequest: AudioFocusRequest? = null
+    internal var lastFocusGain: Int? = null
 
-    private val audioAttributes = AudioAttributes.Builder()
-        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-        .build()
+    private val audioAttributes: AudioAttributes? = runCatching {
+        AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+    }.getOrNull()
 
     private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { /* no-op */ }
 
@@ -85,7 +89,7 @@ class TtsManager(
 
     override fun onInit(status: Int) {
         if (status == TextToSpeech.SUCCESS) {
-            tts?.setAudioAttributes(audioAttributes)
+            audioAttributes?.let { tts?.setAudioAttributes(it) }
             tts?.setOnUtteranceProgressListener(utteranceProgressListener)
             val result = tts?.setLanguage(Locale.ENGLISH)
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
@@ -128,6 +132,7 @@ class TtsManager(
         }
     }
 
+    @SuppressLint("NewApi")
     private fun acquireAudioFocus() {
         val audioMgr = audioManager ?: return
         val mode = audioPreferences.getAudioFocusMode()
@@ -141,13 +146,7 @@ class TtsManager(
         }
 
         val result = if (sdkInt >= Build.VERSION_CODES.O) {
-            val request = AudioFocusRequest.Builder(focusGain)
-                .setAudioAttributes(audioAttributes)
-                .setAcceptsDelayedFocusGain(false)
-                .setOnAudioFocusChangeListener(audioFocusChangeListener)
-                .build()
-            currentFocusRequest = request
-            audioMgr.requestAudioFocus(request)
+            requestAudioFocusOreo(audioMgr, focusGain)
         } else {
             @Suppress("DEPRECATION")
             audioMgr.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_MUSIC, focusGain)
@@ -159,6 +158,17 @@ class TtsManager(
         } else {
             Log.w(TAG, "Audio focus request returned: $result")
         }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun requestAudioFocusOreo(audioMgr: AudioManager, focusGain: Int): Int {
+        val builder = AudioFocusRequest.Builder(focusGain)
+            .setAcceptsDelayedFocusGain(false)
+            .setOnAudioFocusChangeListener(audioFocusChangeListener)
+        audioAttributes?.let { builder.setAudioAttributes(it) }
+        val request = builder.build()
+        currentFocusRequest = request
+        return audioMgr.requestAudioFocus(request)
     }
 
     private fun handleUtteranceFinished(utteranceId: String?) {
@@ -178,19 +188,25 @@ class TtsManager(
         }
     }
 
+    @SuppressLint("NewApi")
     private fun abandonAudioFocus() {
         val audioMgr = audioManager
         if (sdkInt >= Build.VERSION_CODES.O) {
-            currentFocusRequest?.let { request ->
-                audioMgr?.abandonAudioFocusRequest(request)
-                currentFocusRequest = null
-            }
+            abandonAudioFocusOreo(audioMgr)
         } else {
             @Suppress("DEPRECATION")
             audioMgr?.abandonAudioFocus(audioFocusChangeListener)
         }
         isFocusHeld = false
         lastFocusGain = null
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun abandonAudioFocusOreo(audioMgr: AudioManager?) {
+        currentFocusRequest?.let { request ->
+            audioMgr?.abandonAudioFocusRequest(request)
+            currentFocusRequest = null
+        }
     }
 
     fun shutdown() {
