@@ -49,6 +49,9 @@ class WorkoutRepository(
     fun getLatestSessionForWorkout(workoutId: Long): Flow<WorkoutSession?> =
         workoutSessionDao.getLatestSessionForWorkout(workoutId)
 
+    fun getSessionById(sessionId: Long): Flow<WorkoutSession?> =
+        workoutSessionDao.getSessionById(sessionId)
+
     fun getAllSessions(): Flow<List<WorkoutSession>> =
         workoutSessionDao.getAllSessions()
 
@@ -58,6 +61,12 @@ class WorkoutRepository(
 
     suspend fun getAllSessionsList(): List<WorkoutSession> = withContext(ioDispatcher) {
         workoutSessionDao.getAllSessions().first()
+    }
+
+    suspend fun deleteSession(sessionId: Long) = withContext(ioDispatcher) {
+        workoutSessionDao.deleteSessionById(sessionId)
+        coroutineScope.launch { triggerAutoBackup() }
+        Unit
     }
 
     suspend fun deleteAllSessions() = withContext(ioDispatcher) {

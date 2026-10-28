@@ -18,6 +18,12 @@ interface WorkoutSessionDao {
     @Query("SELECT * FROM workout_sessions WHERE workoutId = :workoutId ORDER BY startedAtTimestamp DESC LIMIT 1")
     fun getLatestSessionForWorkout(workoutId: Long): Flow<WorkoutSession?>
 
+    @Query("SELECT * FROM workout_sessions WHERE id = :sessionId LIMIT 1")
+    fun getSessionById(sessionId: Long): Flow<WorkoutSession?>
+
+    @Query("DELETE FROM workout_sessions WHERE id = :sessionId")
+    suspend fun deleteSessionById(sessionId: Long)
+
     @Query("SELECT * FROM workout_sessions ORDER BY startedAtTimestamp DESC")
     fun getAllSessions(): Flow<List<WorkoutSession>>
 

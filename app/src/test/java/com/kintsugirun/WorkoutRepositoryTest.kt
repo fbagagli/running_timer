@@ -153,6 +153,24 @@ class WorkoutRepositoryTest {
     }
 
     @Test
+    fun `getSessionById delegates to workoutSessionDao getSessionById`() = runTest {
+        every { workoutSessionDao.getSessionById(10L) } returns flowOf(sampleSession)
+
+        repository.getSessionById(10L).test {
+            assertThat(awaitItem()).isEqualTo(sampleSession)
+            awaitComplete()
+        }
+        coVerify(exactly = 1) { workoutSessionDao.getSessionById(10L) }
+    }
+
+    @Test
+    fun `deleteSession delegates to workoutSessionDao deleteSessionById`() = runTest {
+        repository.deleteSession(10L)
+
+        coVerify(exactly = 1) { workoutSessionDao.deleteSessionById(10L) }
+    }
+
+    @Test
     fun `getAllSessions delegates to workoutSessionDao getAllSessions`() = runTest {
         val sessions = listOf(sampleSession)
         every { workoutSessionDao.getAllSessions() } returns flowOf(sessions)
