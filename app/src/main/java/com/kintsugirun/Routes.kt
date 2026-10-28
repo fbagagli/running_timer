@@ -16,3 +16,6 @@ data class ActiveWorkoutRoute(
     val workoutId: Long,
     val announceRepetitions: Boolean = false
 )
+
+@Serializable
+data class SessionDetailRoute(val sessionId: Long)

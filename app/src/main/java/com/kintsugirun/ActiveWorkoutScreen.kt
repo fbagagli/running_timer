@@ -28,7 +28,8 @@ fun ActiveWorkoutScreen(
     workoutId: Long,
     announceRepetitions: Boolean = false,
     viewModel: ActiveWorkoutViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateToSession: (Long) -> Unit,
+    onNavigateHome: () -> Unit
 ) {
     val context = LocalContext.current
     DisposableEffect(Unit) {
@@ -42,6 +43,8 @@ fun ActiveWorkoutScreen(
     val workout by viewModel.workout.collectAsState()
     val timerState by viewModel.timerState.collectAsState()
     val gpsMetrics by viewModel.gpsMetrics.collectAsState()
+    val lastSavedSessionId by viewModel.lastSavedSessionId.collectAsState()
+    var isStopping by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -63,11 +66,39 @@ fun ActiveWorkoutScreen(
         viewModel.loadWorkout(workoutId)
     }
 
-    // Auto-navigate back when finished
+    // Auto-navigate to session detail when finished and saved
+    LaunchedEffect(timerState.isFinished, lastSavedSessionId) {
+        if (timerState.isFinished && lastSavedSessionId != null) {
+            val sid = lastSavedSessionId!!
+            viewModel.stopTimer()
+            onNavigateToSession(sid)
+        }
+    }
+
+    LaunchedEffect(isStopping, lastSavedSessionId) {
+        if (isStopping && lastSavedSessionId != null) {
+            val sid = lastSavedSessionId!!
+            onNavigateToSession(sid)
+        }
+    }
+
+    // Fallback if no session was created or saved within timeout
     LaunchedEffect(timerState.isFinished) {
         if (timerState.isFinished) {
-            viewModel.stopTimer()
-            onNavigateBack()
+            kotlinx.coroutines.delay(2000)
+            if (lastSavedSessionId == null) {
+                viewModel.stopTimer()
+                onNavigateHome()
+            }
+        }
+    }
+
+    LaunchedEffect(isStopping) {
+        if (isStopping) {
+            kotlinx.coroutines.delay(2000)
+            if (lastSavedSessionId == null) {
+                onNavigateHome()
+            }
         }
     }
 
@@ -215,8 +246,13 @@ fun ActiveWorkoutScreen(
 
                     FloatingActionButton(
                         onClick = {
-                            viewModel.stopTimer()
-                            onNavigateBack()
+                            if (timerState.totalElapsedSeconds >= 30) {
+                                isStopping = true
+                                viewModel.stopTimer()
+                            } else {
+                                viewModel.stopTimer()
+                                onNavigateHome()
+                            }
                         },
                         containerColor = MaterialTheme.colorScheme.errorContainer
                     ) {
@@ -226,10 +262,4 @@ fun ActiveWorkoutScreen(
             }
         }
     }
-}
-
-private fun formatTime(seconds: Int): String {
-    val mins = seconds / 60
-    val secs = seconds % 60
-    return String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
 }

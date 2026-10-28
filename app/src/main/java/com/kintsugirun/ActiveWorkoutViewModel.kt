@@ -22,6 +22,8 @@ class ActiveWorkoutViewModel(
 
     val timerState: StateFlow<TimerState> = timerManager.timerState
 
+    val lastSavedSessionId: StateFlow<Long?> = timerManager.lastSavedSessionId
+
     val gpsMetrics: StateFlow<GpsMetrics> = gpsTracker?.metrics ?: MutableStateFlow(GpsMetrics()).asStateFlow()
 
     fun loadWorkout(id: Long) {

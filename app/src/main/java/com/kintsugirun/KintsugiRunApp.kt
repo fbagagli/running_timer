@@ -35,6 +35,9 @@ fun KintsugiRunApp(
                 },
                 onCreateWorkout = {
                     navController.navigate(WorkoutEditorRoute())
+                },
+                onNavigateToSession = { sessionId ->
+                    navController.navigate(SessionDetailRoute(sessionId = sessionId))
                 }
             )
         }
@@ -83,10 +86,28 @@ fun KintsugiRunApp(
                 workoutId = route.workoutId,
                 announceRepetitions = route.announceRepetitions,
                 viewModel = activeWorkoutViewModel,
-                onNavigateBack = {
-                    navController.navigate(WorkoutReviewRoute(workoutId = route.workoutId)) {
+                onNavigateToSession = { sessionId ->
+                    navController.navigate(SessionDetailRoute(sessionId = sessionId)) {
                         popUpTo<HomeRoute> { inclusive = false }
                     }
+                },
+                onNavigateHome = {
+                    navController.navigate(HomeRoute) {
+                        popUpTo<HomeRoute> { inclusive = false }
+                    }
+                }
+            )
+        }
+
+        composable<SessionDetailRoute> { backStackEntry ->
+            val route: SessionDetailRoute = backStackEntry.toRoute()
+            val sessionDetailViewModel: SessionDetailViewModel = koinViewModel { parametersOf(route.sessionId) }
+
+            SessionDetailScreen(
+                sessionId = route.sessionId,
+                viewModel = sessionDetailViewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
                 }
             )
         }

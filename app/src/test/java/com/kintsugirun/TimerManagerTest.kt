@@ -1,6 +1,7 @@
 package com.kintsugirun
 
 import com.google.common.truth.Truth.assertThat
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -311,6 +312,42 @@ class TimerManagerTest {
 
         // saveSession should only have been called once (from natural completion)
         coVerify(exactly = 1) { repository.saveSession(any()) }
+    }
+
+    @Test
+    fun `natural completion updates lastSavedSessionId and starting new workout resets it`() {
+        coEvery { repository.saveSession(any()) } returns 77L
+
+        val workout = sampleWorkout.copy(id = 42L)
+        timerManager.start(workout)
+        assertThat(timerManager.lastSavedSessionId.value).isNull()
+
+        // Complete whole workout (240s)
+        timeProvider.advanceTimeBy(240_000L)
+        timerManager.tick()
+        testScope.testScheduler.advanceUntilIdle()
+
+        assertThat(timerManager.lastSavedSessionId.value).isEqualTo(77L)
+
+        // Starting new workout resets lastSavedSessionId
+        timerManager.start(workout)
+        assertThat(timerManager.lastSavedSessionId.value).isNull()
+    }
+
+    @Test
+    fun `stop after 30 seconds updates lastSavedSessionId`() {
+        coEvery { repository.saveSession(any()) } returns 88L
+
+        val workout = sampleWorkout.copy(id = 42L)
+        timerManager.start(workout)
+        assertThat(timerManager.lastSavedSessionId.value).isNull()
+
+        timeProvider.advanceTimeBy(45_000L)
+        timerManager.tick()
+        timerManager.stop()
+        testScope.testScheduler.advanceUntilIdle()
+
+        assertThat(timerManager.lastSavedSessionId.value).isEqualTo(88L)
     }
 
     @Test

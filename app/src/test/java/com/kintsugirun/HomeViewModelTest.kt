@@ -1,6 +1,7 @@
 package com.kintsugirun
 
 import android.net.Uri
+import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -83,6 +84,19 @@ class HomeViewModelTest {
         testScheduler.advanceUntilIdle()
 
         coVerify(exactly = 1) { repository.seedDefaultWorkoutsIfEmpty() }
+    }
+
+    @Test
+    fun `sessions exposes list of sessions from repository`() = runTest {
+        val sampleSessions = listOf(sampleSession1, sampleSession2)
+        every { repository.getAllSessions() } returns flowOf(sampleSessions)
+
+        val viewModel = HomeViewModel(repository)
+        viewModel.sessions.test {
+            assertThat(awaitItem()).isEmpty()
+            assertThat(awaitItem()).isEqualTo(sampleSessions)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test

@@ -8,12 +8,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -32,9 +35,12 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onNavigateToWorkout: (Long) -> Unit,
     onCreateWorkout: () -> Unit,
+    onNavigateToSession: (Long) -> Unit = {},
     audioPreferences: AudioPreferences? = null
 ) {
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val workouts by viewModel.workouts.collectAsState()
+    val sessions by viewModel.sessions.collectAsState()
     val isAutoBackupEnabled by viewModel.isAutoBackupEnabled.collectAsState()
     var workoutToDelete by remember { mutableStateOf<Workout?>(null) }
     var menuExpanded by remember { mutableStateOf(false) }
@@ -55,7 +61,7 @@ fun HomeScreen(
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar("Auto-backup attivato")
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 viewModel.enableAutoBackup(uri)
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar("Auto-backup attivato")
@@ -75,7 +81,7 @@ fun HomeScreen(
                         outputStream.bufferedWriter().use { it.write(json) }
                     }
                     snackbarHostState.showSnackbar("Backup salvato con successo")
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     snackbarHostState.showSnackbar("Errore durante il salvataggio del backup")
                 }
             }
@@ -98,7 +104,7 @@ fun HomeScreen(
                     } else {
                         snackbarHostState.showSnackbar("Errore durante l'importazione del backup")
                     }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     snackbarHostState.showSnackbar("Errore durante l'importazione del backup")
                 }
             }
@@ -117,38 +123,42 @@ fun HomeScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("KintsugiRun Workouts") },
+                title = {
+                    Text(if (selectedTab == 0) "Allenamenti" else "Cronologia")
+                },
                 actions = {
-                    IconButton(onClick = {
-                        scanner.startScan()
-                            .addOnSuccessListener { barcode ->
-                                val rawValue = barcode.rawValue
-                                if (rawValue != null) {
-                                    val parsedWorkout = WorkoutQrHelper.parseWorkoutFromUri(rawValue)
-                                    if (parsedWorkout != null) {
-                                        viewModel.saveWorkout(parsedWorkout)
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("Imported: ${parsedWorkout.workoutName}")
-                                        }
-                                    } else {
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar("Invalid KintsugiRun QR code")
+                    if (selectedTab == 0) {
+                        IconButton(onClick = {
+                            scanner.startScan()
+                                .addOnSuccessListener { barcode ->
+                                    val rawValue = barcode.rawValue
+                                    if (rawValue != null) {
+                                        val parsedWorkout = WorkoutQrHelper.parseWorkoutFromUri(rawValue)
+                                        if (parsedWorkout != null) {
+                                            viewModel.saveWorkout(parsedWorkout)
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Importato: ${parsedWorkout.workoutName}")
+                                            }
+                                        } else {
+                                            coroutineScope.launch {
+                                                snackbarHostState.showSnackbar("Codice QR non valido per KintsugiRun")
+                                            }
                                         }
                                     }
                                 }
-                            }
-                            .addOnFailureListener {
-                                coroutineScope.launch {
-                                    snackbarHostState.showSnackbar("Scan cancelled or failed")
+                                .addOnFailureListener {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar("Scansione annullata o non riuscita")
+                                    }
                                 }
-                            }
-                    }) {
-                        Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan QR Code")
+                        }) {
+                            Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scansiona QR Code")
+                        }
                     }
 
                     Box {
                         IconButton(onClick = { menuExpanded = true }) {
-                            Icon(Icons.Filled.MoreVert, contentDescription = "More options")
+                            Icon(Icons.Filled.MoreVert, contentDescription = "Altre opzioni")
                         }
                         DropdownMenu(
                             expanded = menuExpanded,
@@ -210,49 +220,75 @@ fun HomeScreen(
                 }
             )
         },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onCreateWorkout,
-                icon = { Icon(Icons.Filled.Add, contentDescription = "Create Workout") },
-                text = { Text("Create Workout") }
-            )
-        }
-    ) { paddingValues ->
-        if (workouts.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "No workouts found. Tap 'Create Workout' or scan a QR code.",
-                    style = MaterialTheme.typography.bodyLarge
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = selectedTab == 0,
+                    onClick = { selectedTab = 0 },
+                    icon = { Icon(Icons.AutoMirrored.Filled.DirectionsRun, contentDescription = "Allenamenti") },
+                    label = { Text("Allenamenti") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == 1,
+                    onClick = { selectedTab = 1 },
+                    icon = { Icon(Icons.Filled.History, contentDescription = "Cronologia") },
+                    label = { Text("Cronologia") }
                 )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(workouts, key = { it.id }) { workout ->
-                    WorkoutRow(
-                        workout = workout,
-                        onClick = { onNavigateToWorkout(workout.id) },
-                        onDelete = { workoutToDelete = workout }
+        },
+        floatingActionButton = {
+            if (selectedTab == 0) {
+                ExtendedFloatingActionButton(
+                    onClick = onCreateWorkout,
+                    icon = { Icon(Icons.Filled.Add, contentDescription = "Crea Allenamento") },
+                    text = { Text("Crea Allenamento") }
+                )
+            }
+        }
+    ) { paddingValues ->
+        if (selectedTab == 0) {
+            if (workouts.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Nessun allenamento trovato. Tocca 'Crea Allenamento' o scansiona un codice QR.",
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(workouts, key = { it.id }) { workout ->
+                        WorkoutRow(
+                            workout = workout,
+                            onClick = { onNavigateToWorkout(workout.id) },
+                            onDelete = { workoutToDelete = workout }
+                        )
+                    }
+                }
             }
+        } else {
+            HistoryScreen(
+                sessions = sessions,
+                onNavigateToSession = onNavigateToSession,
+                modifier = Modifier.padding(paddingValues)
+            )
         }
 
         workoutToDelete?.let { workout ->
             AlertDialog(
                 onDismissRequest = { workoutToDelete = null },
-                title = { Text("Delete Workout") },
-                text = { Text("Are you sure you want to delete \"${workout.workoutName}\"?") },
+                title = { Text("Elimina Allenamento") },
+                text = { Text("Sei sicuro di voler eliminare \"${workout.workoutName}\"?") },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -260,12 +296,12 @@ fun HomeScreen(
                             workoutToDelete = null
                         }
                     ) {
-                        Text("Delete", color = MaterialTheme.colorScheme.error)
+                        Text("Elimina", color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { workoutToDelete = null }) {
-                        Text("Cancel")
+                        Text("Annulla")
                     }
                 }
             )
@@ -310,7 +346,7 @@ fun WorkoutRow(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${workout.repeats} reps • Run ${formatTime(workout.runSeconds)} / Walk ${formatTime(workout.walkSeconds)} • ${formatTime(totalSeconds)} total",
+                    text = "${workout.repeats} rip • Corsa ${formatTime(workout.runSeconds)} / Camminata ${formatTime(workout.walkSeconds)} • ${formatTime(totalSeconds)} totale",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -318,16 +354,10 @@ fun WorkoutRow(
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = "Delete Workout",
+                    contentDescription = "Elimina Allenamento",
                     tint = MaterialTheme.colorScheme.error
                 )
             }
         }
     }
-}
-
-private fun formatTime(seconds: Int): String {
-    val mins = seconds / 60
-    val secs = seconds % 60
-    return String.format(Locale.getDefault(), "%02d:%02d", mins, secs)
 }

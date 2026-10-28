@@ -24,6 +24,12 @@ class HomeViewModel(
         initialValue = emptyList()
     )
 
+    val sessions: StateFlow<List<WorkoutSession>> = repository.getAllSessions().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
+
     private val _isAutoBackupEnabled = MutableStateFlow(
         autoBackupManager?.isAutoBackupEnabled() == true
     )

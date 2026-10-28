@@ -30,6 +30,9 @@ class TimerManager(
     private val _timerState = MutableStateFlow(TimerState())
     val timerState: StateFlow<TimerState> = _timerState.asStateFlow()
 
+    private val _lastSavedSessionId = MutableStateFlow<Long?>(null)
+    val lastSavedSessionId: StateFlow<Long?> = _lastSavedSessionId.asStateFlow()
+
     private var voicePromptManager: VoicePromptManager? = null
     private var currentWorkoutSteps: List<WorkoutStep> = emptyList()
     private var currentStepIndex = 0
@@ -62,6 +65,7 @@ class TimerManager(
 
         if (currentWorkoutSteps.isEmpty()) return
 
+        _lastSavedSessionId.value = null
         currentWorkout = workout
         workoutStartTimeMs = System.currentTimeMillis()
         sessionSaved = false
@@ -129,7 +133,8 @@ class TimerManager(
                 interruptedPhase = phase
             )
             scope.launch {
-                repository?.saveSession(session)
+                val id = repository?.saveSession(session)
+                _lastSavedSessionId.value = id
             }
         }
 
@@ -245,7 +250,8 @@ class TimerManager(
                         interruptedPhase = null
                     )
                     scope.launch {
-                        repository?.saveSession(session)
+                        val id = repository?.saveSession(session)
+                        _lastSavedSessionId.value = id
                     }
                 }
                 return
