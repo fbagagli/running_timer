@@ -67,6 +67,9 @@ class AppModuleTest : KoinTest {
         assertThat(activeViewModel).isNotNull()
         assertThat(activeViewModel.gpsMetrics.value).isNotNull()
 
+        val sessionDetailViewModel: SessionDetailViewModel = get { parametersOf(10L) }
+        assertThat(sessionDetailViewModel).isNotNull()
+
         val timerManager: TimerManager = get()
         assertThat(timerManager).isNotNull()
 

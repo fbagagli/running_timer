@@ -38,4 +38,5 @@ val appModule = module {
     viewModel { WorkoutReviewViewModel(get(), audioPreferences = get()) }
     viewModel { (workoutId: Long?) -> WorkoutEditorViewModel(get(), workoutId) }
     viewModel { ActiveWorkoutViewModel(get(), get(), androidApplication(), get()) }
+    viewModel { (sessionId: Long?) -> SessionDetailViewModel(get(), sessionId) }
 }
